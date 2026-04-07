@@ -167,6 +167,7 @@ export function SearchingForLoot({ apiKey }) {
     try {
       const crimes = await fetchCrimes(apiKey)
       const raw = crimes[CRIME_KEY]
+      console.log('theft data:', raw)
       if (!raw) {
         setError(`Crime key "${CRIME_KEY}" not found. Available keys logged to console.`)
         console.warn('Available crime keys:', Object.keys(crimes))
