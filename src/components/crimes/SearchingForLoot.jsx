@@ -8,7 +8,7 @@ import { estimateSkill, buildChartData } from '../../utils/crimeModel'
 import { useSnapshots } from '../../hooks/useSnapshots'
 import { ViewToggle } from '../ui/ViewToggle'
 
-const CRIME_KEY = 'searching_for_loot'
+const CRIME_KEY = 'theft'
 
 function StatCard({ label, value, sub, accent }) {
   return (
@@ -194,8 +194,8 @@ export function SearchingForLoot({ apiKey }) {
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
           <p className="font-mono text-xs text-torn-accent tracking-widest uppercase mb-1">Crime Skill Estimator</p>
-          <h2 className="font-display text-2xl font-bold text-white">Searching for Loot</h2>
-          <p className="text-torn-text-dim text-sm mt-1">Bayesian inference on your hidden crime skill.</p>
+          <h2 className="font-display text-2xl font-bold text-white">Theft</h2>
+          <p className="text-torn-text-dim text-sm mt-1">Bayesian inference on your hidden theft skill.</p>
         </div>
         <ViewToggle value={view} onChange={setView} />
       </div>
