@@ -25,11 +25,6 @@ export async function fetchCrimes(apiKey) {
 
 // ── Market ───────────────────────────────────────────────────────────────────
 
-/**
- * Fetch all Torn items (includes NPC buy price / sell price).
- * Returns an object keyed by item ID.
- * Cached in sessionStorage for the session to avoid hammering the API.
- */
 export async function fetchAllItems(apiKey) {
   const CACHE_KEY = 'torn_items_cache'
   try {
@@ -46,14 +41,14 @@ export async function fetchAllItems(apiKey) {
   return data.items ?? {}
 }
 
-/**
- * Fetch the current lowest market listings for a single item.
- * Returns an array of { cost, quantity } sorted ascending by cost.
- */
 export async function fetchMarketListings(apiKey, itemId) {
-  const res  = await fetch(`${BASE}/market/${itemId}/?selections=itemmarket&key=${apiKey}`)
+  const url = `${BASE}/market/?selections=itemmarket&item=${itemId}&key=${apiKey}`
+  const res  = await fetch(url)
   if (!res.ok) throw new Error(`Network error: ${res.status}`)
   const data = await res.json()
+
+  console.log(`Market response for item ${itemId}:`, data)
+
   if (data.error) throw new Error(`Torn API [${data.error.code}]: ${data.error.error}`)
 
   const listings = data.itemmarket ?? []
