@@ -1,50 +1,23 @@
 /**
  * marketUtils.js
  *
- * Arbitrage logic for Torn NPC vs. Player Market.
+ * Market vs Average Price arbitrage.
  *
- * Key mechanic:
- *   - NPC shops sell items at fixed "buy_price"
- *   - Player market sells at variable prices
- *   - Torn charges a 5% listing fee on market sales
+ * Strategy:
+ *   - Torn's average_price is a daily snapshot of the market average
+ *   - If lowest listing > average_price: market is elevated, could be a sell opportunity
+ *   - If lowest listing < average_price * BUY_THRESHOLD: market is depressed, buy and relist
  *
- * Profit formula (per unit):
- *   net_profit = lowest_market_price * 0.95 - npc_buy_price
+ * Profit formula (buy low, relist at average):
+ *   net_profit = (average_price * 0.95) - lowest_listing
  *
- * Positive net_profit = arbitrage opportunity.
+ * Positive = you can buy the cheapest listing and relist at average price
+ * after the 5% tax and still profit.
  */
 
-export const MARKET_TAX = 0.05  // 5% Torn market fee
+export const MARKET_TAX   = 0.05
+export const BUY_THRESHOLD = 0.90  // listing must be 10%+ below average to flag as opportunity
 
-/**
- * Calculate arbitrage stats for a single item.
- *
- * @param {number} npcPrice         - Item's NPC buy price
- * @param {number} lowestMarketPrice - Lowest current market listing
- * @returns {{
- *   spread: number,        // raw difference (market - npc)
- *   netProfit: number,     // after 5% tax
- *   roi: number,           // return on investment as decimal
- *   worthIt: boolean,      // true if net profit > 0
- * }}
- */
-export function calcArbitrage(npcPrice, lowestMarketPrice) {
-  const afterTax  = lowestMarketPrice * (1 - MARKET_TAX)
-  const spread    = lowestMarketPrice - npcPrice
-  const netProfit = afterTax - npcPrice
-  const roi       = npcPrice > 0 ? netProfit / npcPrice : 0
-
-  return {
-    spread:    Math.round(spread),
-    netProfit: Math.round(netProfit),
-    roi,
-    worthIt:   netProfit > 0,
-  }
-}
-
-/**
- * Format a Torn money value (e.g. 1234567 → "$1,234,567")
- */
 export function formatMoney(n) {
   if (n === null || n === undefined) return '—'
   const abs = Math.abs(Math.round(n))
@@ -53,37 +26,58 @@ export function formatMoney(n) {
 }
 
 /**
- * Filter and sort items eligible for NPC→Market arbitrage.
- * Only returns items that:
- *   1. Have a valid NPC buy price > 0
- *   2. Have at least one market listing
- *   3. (optionally) only profitable ones
+ * Calculate arbitrage between lowest market listing and average price.
+ *
+ * @param {number} avgPrice     - item's daily average_price from API
+ * @param {number} lowestListing - current cheapest market listing
+ * @returns {{
+ *   netProfit: number,   // buy at lowest, relist at avg after 5% tax
+ *   discount: number,    // how far below average the listing is (0–1)
+ *   worthIt: boolean,
+ *   signal: string,      // 'buy' | 'sell' | 'neutral'
+ * }}
+ */
+export function calcArbitrage(avgPrice, lowestListing) {
+  const afterTax  = avgPrice * (1 - MARKET_TAX)
+  const netProfit = afterTax - lowestListing
+  const discount  = avgPrice > 0 ? 1 - (lowestListing / avgPrice) : 0
+  const worthIt   = netProfit > 0 && discount >= (1 - BUY_THRESHOLD)
+
+  let signal = 'neutral'
+  if (worthIt) signal = 'buy'
+  else if (lowestListing > avgPrice * 1.10) signal = 'sell'
+
+  return { netProfit: Math.round(netProfit), discount, worthIt, signal }
+}
+
+/**
+ * Build arbitrage list from scanned items + market data.
  */
 export function buildArbitrageList(items, marketData, onlyProfitable = false) {
   const results = []
 
   for (const [id, item] of Object.entries(items)) {
-    const npcPrice = item.buy_price
-    if (!npcPrice || npcPrice <= 0) continue
+    const avgPrice = item.market_value
+    if (!avgPrice || avgPrice <= 0) continue
 
     const listings = marketData[id]
     if (!listings || listings.length === 0) continue
 
     const lowest = listings[0].cost
-    const arb    = calcArbitrage(npcPrice, lowest)
+    const arb    = calcArbitrage(avgPrice, lowest)
 
     if (onlyProfitable && !arb.worthIt) continue
 
     results.push({
       id,
-      name:       item.name,
-      type:       item.type,
-      npcPrice,
-      lowestMarket: lowest,
+      name:          item.name,
+      type:          item.type,
+      avgPrice,
+      lowestListing: lowest,
+      listingCount:  listings.length,
       ...arb,
     })
   }
 
-  // Sort by net profit descending
   return results.sort((a, b) => b.netProfit - a.netProfit)
 }
