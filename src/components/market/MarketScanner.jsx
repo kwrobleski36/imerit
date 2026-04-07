@@ -1,9 +1,28 @@
 import { useState, useCallback } from 'react'
 import { fetchAllItems, fetchMarketListings } from '../../services/tornApi'
-import { buildArbitrageList, formatMoney, MARKET_TAX } from '../../utils/marketUtils'
+import { buildArbitrageList, formatMoney } from '../../utils/marketUtils'
 import { ViewToggle } from '../ui/ViewToggle'
 
-const SCAN_BATCH = 20
+const SCAN_BATCH = 30
+
+// Categories we'll show as filter buttons — mapped to Torn item type values
+const CATEGORIES = [
+  { label: 'All',        type: null },
+  { label: 'Melee',      type: 'Melee' },
+  { label: 'Primary',    type: 'Primary' },
+  { label: 'Secondary',  type: 'Secondary' },
+  { label: 'Temporary',  type: 'Temporary' },
+  { label: 'Drug',       type: 'Drug' },
+  { label: 'Medical',    type: 'Medical' },
+  { label: 'Alcohol',    type: 'Alcohol' },
+  { label: 'Candy',      type: 'Candy' },
+  { label: 'Energy',     type: 'Energy Drink' },
+  { label: 'Clothing',   type: 'Clothing' },
+  { label: 'Flower',     type: 'Flower' },
+  { label: 'Plushie',    type: 'Plushie' },
+  { label: 'Supply',     type: 'Supply Pack' },
+  { label: 'Other',      type: 'Other' },
+]
 
 function ProfitBadge({ netProfit }) {
   if (netProfit > 0) return (
@@ -27,7 +46,7 @@ function ROIBadge({ roi }) {
 function VisualView({ results }) {
   if (results.length === 0) return (
     <p className="text-torn-text-dim text-sm font-mono py-8 text-center">
-      No results yet. Run a scan to find arbitrage opportunities.
+      No results. Try a different category or disable "Profitable only".
     </p>
   )
   return (
@@ -42,28 +61,12 @@ function VisualView({ results }) {
             <ProfitBadge netProfit={item.netProfit} />
           </div>
           <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-            <div>
-              <p className="text-torn-text-dim">NPC Price</p>
-              <p className="text-white">{formatMoney(item.npcPrice)}</p>
-            </div>
-            <div>
-              <p className="text-torn-text-dim">Market Low</p>
-              <p className="text-white">{formatMoney(item.lowestMarket)}</p>
-            </div>
-            <div>
-              <p className="text-torn-text-dim">Spread</p>
-              <p className={item.spread > 0 ? 'text-torn-success' : 'text-torn-danger'}>{formatMoney(item.spread)}</p>
-            </div>
-            <div>
-              <p className="text-torn-text-dim">After 5% Tax</p>
-              <ROIBadge roi={item.roi} />
-            </div>
+            <div><p className="text-torn-text-dim">NPC Price</p><p className="text-white">{formatMoney(item.npcPrice)}</p></div>
+            <div><p className="text-torn-text-dim">Market Low</p><p className="text-white">{formatMoney(item.lowestMarket)}</p></div>
+            <div><p className="text-torn-text-dim">Spread</p><p className={item.spread > 0 ? 'text-torn-success' : 'text-torn-danger'}>{formatMoney(item.spread)}</p></div>
+            <div><p className="text-torn-text-dim">After 5% Tax</p><ROIBadge roi={item.roi} /></div>
           </div>
-          {item.worthIt && (
-            <p className="font-mono text-xs text-torn-success border-t border-torn-border/50 pt-2">
-              Buy from NPC and flip on market
-            </p>
-          )}
+          {item.worthIt && <p className="font-mono text-xs text-torn-success border-t border-torn-border/50 pt-2">Buy from NPC and flip on market</p>}
         </div>
       ))}
     </div>
@@ -72,7 +75,7 @@ function VisualView({ results }) {
 
 function TextView({ results }) {
   if (results.length === 0) return (
-    <p className="text-torn-text-dim text-sm font-mono py-4">No results yet. Run a scan.</p>
+    <p className="text-torn-text-dim text-sm font-mono py-4">No results. Try a different category or disable "Profitable only".</p>
   )
   return (
     <div className="bg-torn-surface border border-torn-border rounded overflow-x-auto">
@@ -109,32 +112,25 @@ export function MarketScanner({ apiKey }) {
   const [results, setResults]               = useState([])
   const [onlyProfitable, setOnlyProfitable] = useState(true)
   const [searchTerm, setSearchTerm]         = useState('')
-  const [debugInfo, setDebugInfo]           = useState(null)
+  const [activeCategory, setActiveCategory] = useState(null)
 
-  const runScan = useCallback(async () => {
+  const runScan = useCallback(async (categoryType) => {
     setLoading(true)
     setError(null)
     setResults([])
     setProgress(null)
-    setDebugInfo(null)
 
     try {
       const items = await fetchAllItems(apiKey)
 
-      const totalItems = Object.keys(items).length
-      const firstEntry = Object.entries(items)[0]
-      console.log('Total items:', totalItems)
-      console.log('Sample item entry:', firstEntry)
-      setDebugInfo(`Total items: ${totalItems}. Sample: ${JSON.stringify(firstEntry?.[1]).slice(0, 120)}`)
-
+      // Filter: must have NPC buy price, and match selected category if any
       const scannable = Object.entries(items)
         .filter(([, item]) => item.buy_price > 0)
+        .filter(([, item]) => categoryType === null || item.type === categoryType)
         .slice(0, SCAN_BATCH)
 
-      console.log('Scannable (have buy_price):', scannable.length)
-
       if (scannable.length === 0) {
-        setError('No items with buy_price found. Check console for sample item structure.')
+        setError('No NPC-purchasable items found in this category.')
         return
       }
 
@@ -158,12 +154,16 @@ export function MarketScanner({ apiKey }) {
       setResults(list)
     } catch (err) {
       setError(err.message)
-      console.error('Scan error:', err)
     } finally {
       setLoading(false)
       setProgress(null)
     }
   }, [apiKey])
+
+  function handleCategoryClick(type) {
+    setActiveCategory(type)
+    runScan(type)
+  }
 
   const filtered = results
     .filter((r) => !onlyProfitable || r.worthIt)
@@ -173,28 +173,56 @@ export function MarketScanner({ apiKey }) {
 
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-6">
+      {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
           <p className="font-mono text-xs text-torn-accent tracking-widest uppercase mb-1">Market Arbitrage</p>
           <h2 className="font-display text-2xl font-bold text-white">Market Scanner</h2>
-          <p className="text-torn-text-dim text-sm mt-1">Compare NPC shop prices vs. player market to find flip opportunities.</p>
+          <p className="text-torn-text-dim text-sm mt-1">Compare NPC prices vs. player market. Buy low, flip high.</p>
         </div>
         <ViewToggle value={view} onChange={setView} />
       </div>
 
+      {/* Info bar */}
       <div className="bg-torn-surface border border-torn-border rounded p-4 font-mono text-xs text-torn-text-dim space-y-1">
-        <p><span className="text-torn-text">Strategy:</span> Buy item from NPC, list on player market at market price.</p>
         <p><span className="text-torn-text">Profit formula:</span> (Market Low x 0.95) - NPC Price &gt; 0</p>
-        <p><span className="text-torn-text">Tax:</span> Torn charges 5% on all market sales. Profit shown is after tax.</p>
-        <p><span className="text-torn-text">Scan limit:</span> {SCAN_BATCH} items per run. Sorted by profit desc.</p>
+        <p><span className="text-torn-text">Tax:</span> 5% Torn market fee already deducted from profit shown.</p>
+        <p><span className="text-torn-text">Limit:</span> {SCAN_BATCH} items per scan to respect API rate limits.</p>
       </div>
 
+      {/* Category filters */}
+      <div className="flex flex-wrap gap-2">
+        {CATEGORIES.map(({ label, type }) => (
+          <button
+            key={label}
+            onClick={() => handleCategoryClick(type)}
+            disabled={loading}
+            className={`px-3 py-1.5 rounded font-mono text-xs transition-colors duration-150 border disabled:opacity-40
+              ${activeCategory === type
+                ? 'bg-torn-accent text-torn-bg border-torn-accent font-semibold'
+                : 'bg-torn-surface border-torn-border text-torn-text-dim hover:border-torn-accent hover:text-torn-accent'
+              }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Status + search */}
       <div className="flex flex-wrap gap-3 items-center">
-        <button onClick={runScan} disabled={loading} className="bg-torn-accent text-torn-bg px-5 py-2 rounded font-mono text-sm font-semibold hover:bg-torn-accent-dim transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-          {loading ? `Scanning... ${progress ?? ''}` : 'Run Scan'}
-        </button>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <div onClick={() => setOnlyProfitable((v) => !v)} className={`w-8 h-4 rounded-full transition-colors duration-200 relative ${onlyProfitable ? 'bg-torn-accent' : 'bg-torn-muted'}`}>
+        {loading && (
+          <span className="font-mono text-xs text-torn-accent animate-pulse">
+            Scanning... {progress ?? ''}
+          </span>
+        )}
+        {results.length > 0 && !loading && (
+          <>
+            <span className="font-mono text-xs text-torn-text-dim">Scanned: <span className="text-white">{results.length}</span></span>
+            <span className="font-mono text-xs text-torn-text-dim">Profitable: <span className="text-torn-success">{profitCount}</span></span>
+          </>
+        )}
+        <label className="flex items-center gap-2 cursor-pointer ml-auto">
+          <div onClick={() => setOnlyProfitable((v) => !v)} className={`w-8 h-4 rounded-full transition-colors duration-200 relative cursor-pointer ${onlyProfitable ? 'bg-torn-accent' : 'bg-torn-muted'}`}>
             <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-torn-bg transition-transform duration-200 ${onlyProfitable ? 'translate-x-4' : 'translate-x-0.5'}`} />
           </div>
           <span className="font-mono text-xs text-torn-text-dim">Profitable only</span>
@@ -204,23 +232,9 @@ export function MarketScanner({ apiKey }) {
         )}
       </div>
 
-      {results.length > 0 && (
-        <div className="flex gap-6 font-mono text-xs">
-          <span className="text-torn-text-dim">Scanned: <span className="text-white">{results.length}</span></span>
-          <span className="text-torn-text-dim">Profitable: <span className="text-torn-success">{profitCount}</span></span>
-          <span className="text-torn-text-dim">Showing: <span className="text-torn-accent">{filtered.length}</span></span>
-        </div>
-      )}
-
       {error && (
         <div className="bg-torn-surface border border-torn-danger/40 rounded p-4">
           <p className="font-mono text-xs text-torn-danger">{error}</p>
-        </div>
-      )}
-
-      {debugInfo && (
-        <div className="bg-torn-surface border border-torn-border rounded p-4">
-          <p className="font-mono text-xs text-torn-text-dim break-all">{debugInfo}</p>
         </div>
       )}
 
@@ -231,8 +245,8 @@ export function MarketScanner({ apiKey }) {
 
       {results.length > 0 && (
         <div className="border-t border-torn-border pt-4">
-          <p className="font-mono text-xs text-torn-text-dim leading-relaxed">
-            <span className="text-torn-text">Note:</span> Market prices change constantly. Always verify the listing before buying.
+          <p className="font-mono text-xs text-torn-text-dim">
+            <span className="text-torn-text">Note:</span> Market prices change constantly. Verify before buying. High-volume items fill fast.
           </p>
         </div>
       )}
