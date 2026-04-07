@@ -1,8 +1,6 @@
 const BASE    = 'https://api.torn.com'
 const BASE_V2 = 'https://api.torn.com/v2'
 
-// ── Auth ─────────────────────────────────────────────────────────────────────
-
 export async function validateApiKey(apiKey) {
   try {
     const res  = await fetch(`${BASE}/user/?selections=basic&key=${apiKey}`)
@@ -14,8 +12,6 @@ export async function validateApiKey(apiKey) {
   }
 }
 
-// ── Crime stats ───────────────────────────────────────────────────────────────
-
 export async function fetchCrimes(apiKey) {
   const res  = await fetch(`${BASE}/user/?selections=crimes&key=${apiKey}`)
   if (!res.ok) throw new Error(`Network error: ${res.status}`)
@@ -24,12 +20,6 @@ export async function fetchCrimes(apiKey) {
   return data.criminalrecord ?? {}
 }
 
-// ── Market ───────────────────────────────────────────────────────────────────
-
-/**
- * Fetch all Torn items including buy_price and market_value.
- * Cached in sessionStorage for the session.
- */
 export async function fetchAllItems(apiKey) {
   const CACHE_KEY = 'torn_items_cache'
   try {
@@ -46,24 +36,16 @@ export async function fetchAllItems(apiKey) {
   return data.items ?? {}
 }
 
-/**
- * Fetch live market listings for a single item via API v2.
- * Returns an array of { cost, quantity } sorted ascending by cost.
- * Falls back to empty array on error.
- */
 export async function fetchMarketListings(apiKey, itemId) {
   const url = `${BASE_V2}/market/${itemId}?selections=itemmarket&key=${apiKey}`
   const res  = await fetch(url)
   if (!res.ok) throw new Error(`Network error: ${res.status}`)
   const data = await res.json()
-
-  console.log(`Market v2 response for item ${itemId}:`, JSON.stringify(data).slice(0, 200))
-
   if (data.error) throw new Error(`Torn API [${data.error.code}]: ${data.error.error}`)
 
-  // v2 may return itemmarket as array or under a nested key — handle both
-  const listings = data.itemmarket ?? data.item_market ?? []
-  return Array.isArray(listings)
-    ? listings.map((l) => ({ cost: l.cost ?? l.price, quantity: l.quantity })).sort((a, b) => a.cost - b.cost)
-    : []
+  // v2 structure: data.itemmarket.listings[{ price, amount }]
+  const listings = data.itemmarket?.listings ?? []
+  return listings
+    .map((l) => ({ cost: l.price, quantity: l.amount }))
+    .sort((a, b) => a.cost - b.cost)
 }
