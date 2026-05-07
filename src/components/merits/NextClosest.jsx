@@ -1,11 +1,11 @@
 import { useMemo } from 'react'
 import { estimateProgress, formatNumber, asciiBar } from '../../utils/progressEstimator'
 
-const HEADER = `+----------------------------------+
-|       NEXT CLOSEST MERITS        |
-+----------------------------------+`
+const HEADER = `+----------------------------------------+
+|       NEXT 5 CLOSEST MERITS            |
++----------------------------------------+`
 
-export function NextClosest({ awards, personalstats, battlestats, topN = 3 }) {
+export function NextClosest({ awards, personalstats, battlestats, topN = 5 }) {
   const ranked = useMemo(() => {
     return awards
       .filter(a => !a.earned)
@@ -24,11 +24,14 @@ export function NextClosest({ awards, personalstats, battlestats, topN = 3 }) {
       </div>
 
       <div className="divide-y divide-ink-100">
-        {ranked.map(({ award, progress }) => (
+        {ranked.map(({ award, progress }, i) => (
           <div key={award.id} className="px-4 py-3 hover:bg-ink-50 transition-colors">
-            <div className="flex items-baseline justify-between mb-1">
-              <span className="font-semibold text-sm text-ink-900">{award.name}</span>
-              <span className="font-mono text-xs text-accent-dark">{progress.percent}%</span>
+            <div className="flex items-baseline justify-between mb-1 gap-2">
+              <span className="font-semibold text-sm text-ink-900">
+                <span className="font-mono text-xs text-ink-400 mr-2">#{i + 1}</span>
+                {award.name}
+              </span>
+              <span className="font-mono text-xs text-accent-dark font-bold">{progress.percent}%</span>
             </div>
             <p className="text-xs text-ink-500 mb-1.5 leading-tight">{award.description}</p>
             <div className="flex items-center gap-3 font-mono text-[11px]">

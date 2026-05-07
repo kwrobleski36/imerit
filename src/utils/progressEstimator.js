@@ -1,15 +1,17 @@
 // Maps awards to player progress based on personalstats and battlestats.
 // Order matters: more specific patterns must come BEFORE broader ones.
 const KNOWN = [
-  // ─── Specific named honors ──────────────────────────────────────
+  // ─── Specific named honors (exact-name matches first) ──────────
   { pattern: /^sidekick$/i,             field: 'attacksassisted',      target: 250 },
   { pattern: /^happy slapper$/i,        field: 'attackswon',           target: 250 },
   { pattern: /^fall camo$/i,            field: 'defendswon',           target: 250 },
   { pattern: /^big shot$/i,             field: 'attackshits',          target: 1000 },
   { pattern: /^marksman$/i,             field: 'attackcriticalhits',   target: 100 },
   { pattern: /^one in a million$/i,     field: 'attackcriticalhits',   target: 1000 },
+  { pattern: /^hospitalizer$/i,         field: 'hospitalized',         target: 100 },
+  { pattern: /^stalemate$/i,            field: 'attacksstealthed',     target: 100 },
 
-  // Combat / Attacks
+  // Combat / Attacks (descriptive name patterns)
   { pattern: /tooth and nail/i,         field: 'attackswon',           target: 2500 },
   { pattern: /coup de grace/i,          field: 'attackswon',           target: 5000 },
   { pattern: /killing spree/i,          field: 'attackswon',           target: 10000 },
@@ -17,11 +19,10 @@ const KNOWN = [
   { pattern: /lead salad/i,             field: 'roundsfired',          target: 100000 },
   { pattern: /peppered/i,               field: 'roundsfired',          target: 1000000 },
 
-  // Assists - check BEFORE generic attack patterns
+  // ─── Phrase-priority rules (match BEFORE generic attack) ───────
   { pattern: /assist/i,                 field: 'attacksassisted',      target: null },
-
-  // Defends
   { pattern: /defend/i,                 field: 'defendswon',           target: null },
+  { pattern: /critical/i,               field: 'attackcriticalhits',   target: null },
 
   // Crimes
   { pattern: /perp.*1,?000/i,           field: 'criminaloffenses',     target: 1000 },
@@ -37,17 +38,16 @@ const KNOWN = [
   // Money / Economy
   { pattern: /pious/i,                  field: 'churchspent',          target: 100000 },
   { pattern: /sacrificial/i,            field: 'churchspent',          target: 1000000000 },
-  { pattern: /big spender/i,            field: 'totalbountyspent',     target: 10000000 },
 
   // Travel
   { pattern: /globetrotter/i,           field: 'traveltime',           target: 31536000 },
   { pattern: /frequent flyer/i,         field: 'traveltime',           target: 2678400 },
 
-  // Education / Jobs
+  // Education
   { pattern: /smart alec/i,             field: 'eduinprogress',        target: 10 },
   { pattern: /wise guy/i,               field: 'eduinprogress',        target: 50 },
 
-  // Stats (battle stats)
+  // Battle stats
   { pattern: /toned/i,                  field: 'total',     source: 'battle', target: 100000 },
   { pattern: /athletic/i,               field: 'total',     source: 'battle', target: 1000000 },
   { pattern: /pumped/i,                 field: 'total',     source: 'battle', target: 100000000 },
@@ -71,34 +71,28 @@ export function estimateProgress(award, personalstats = {}, battlestats = {}) {
   const text = `${award.name ?? ''} ${award.description ?? ''}`
   const desc = (award.description ?? '').toLowerCase()
 
-  // Try explicit rules
   for (const rule of KNOWN) {
     if (rule.pattern.test(text)) {
       const source = rule.source === 'battle' ? battlestats : personalstats
       const current = Number(source[rule.field] ?? 0)
       if (isNaN(current)) continue
-
-      // If target is null, derive from description
       const target = rule.target ?? extractTarget(award.description)
       if (!target) continue
-
       const percent = Math.min(100, Math.round((current / target) * 100))
       return { current, target, percent }
     }
   }
 
-  // Heuristic fallback with carefully ordered keyword priority.
-  // More specific phrases first to avoid bleeding into broader matches.
+  // Heuristic fallback - careful keyword priority
   const target = extractTarget(award.description)
   if (!target) return null
 
   const guesses = [
-    // Specific phrases
     { kw: 'assist',       field: 'attacksassisted' },
     { kw: 'defend',       field: 'defendswon' },
     { kw: 'critical',     field: 'attackcriticalhits' },
     { kw: 'mug',          field: 'attacksmugged' },
-    { kw: 'hospitalize',  field: 'attackshospitalized' },
+    { kw: 'hospitalize',  field: 'hospitalized' },
     { kw: 'energy drink', field: 'energydrinkused' },
     { kw: 'cannabis',     field: 'cantaken' },
     { kw: 'xanax',        field: 'xantaken' },
@@ -110,8 +104,6 @@ export function estimateProgress(award, personalstats = {}, battlestats = {}) {
     { kw: 'item',         field: 'itemsbought' },
     { kw: 'revive',       field: 'revives' },
     { kw: 'bust',         field: 'jailsbusted' },
-    // Broader (last)
-    { kw: 'win',          field: 'attackswon' },
     { kw: 'attack',       field: 'attackswon' },
     { kw: 'crime',        field: 'criminaloffenses' },
   ]

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { fetchTornAwards, fetchPlayerAwards, debug } from '../../services/tornApi'
 import { NextClosest } from './NextClosest'
+import { estimateProgress, formatNumber, asciiBar } from '../../utils/progressEstimator'
 
 const CATEGORY_RULES = [
   { label: 'Combat',    keys: ['attack','defeat','kill','mug','hospitalize','fight','war','chain','stab','shoot','punch','kick','bash','assassin','hitman','slaughter','massacre','blood','revenge','aggress','devastat','terror','retali','critical','headshot','carnage','victor','lethal'] },
@@ -19,13 +20,6 @@ function detectCategory(name = '', description = '') {
   const text = `${name} ${description}`.toLowerCase()
   for (const rule of CATEGORY_RULES) if (rule.keys.some(k => text.includes(k))) return rule.label
   return 'Other'
-}
-
-function detectDifficulty(name = '', description = '') {
-  const text = `${name} ${description}`.toLowerCase()
-  if (['100,000,000','1,000,000,000','shredded','devastation','grandmaster','legendary'].some(k => text.includes(k))) return 'Hard'
-  if (['10,000','50,000','1,000,000','specialist','expert','accomplished'].some(k => text.includes(k))) return 'Medium'
-  return 'Easy'
 }
 
 const TIPS = {
@@ -55,20 +49,35 @@ function getTip(name) {
   return null
 }
 
-const DIFF_BADGE = {
-  Easy:   'bg-accent-light text-accent-dark',
-  Medium: 'bg-warn-light text-warn',
-  Hard:   'bg-bad-light text-bad',
-}
-
 const CATEGORIES = ['All', 'Combat', 'Crimes', 'Education', 'Travel', 'Stats', 'Social', 'Medical', 'Economy', 'Casino', 'Level', 'Other']
+
+// ─── ASCII flourishes ────────────────────────────────────────────────────────
+const SIDEBAR_DIVIDER  = '> ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─'
+const EMPTY_DONE = `   ___ ___  __  __ ___ _    ___ _____ ___
+  / __/ _ \\|  \\/  | _ \\ |  | __|_   _| __|
+ | (_| (_) | |\\/| |  _/ |__| _|  | | | _|
+  \\___\\___/|_|  |_|_| |____|___| |_| |___|`
+
+const EMPTY_NONE = `   _  _  ___    __  __    _ _____ ___ _  _
+  | \\| |/ _ \\  |  \\/  |  /_\\_   _/ __| || |
+  | .\` | (_) | | |\\/| | / _ \\| || (__| __ |
+  |_|\\_|\\___/  |_|  |_|/_/ \\_\\_| \\___|_||_|`
+
+// ─── UI primitives ───────────────────────────────────────────────────────────
 
 function Card({ children, className = '' }) {
   return <div className={`bg-white border border-ink-200 rounded-md ${className}`}>{children}</div>
 }
 
-function CardHeader({ children }) {
-  return <div className="px-4 py-2.5 border-b border-ink-200 text-xs font-semibold text-ink-700 uppercase tracking-wide">{children}</div>
+function CardHeader({ children, decorated = true }) {
+  return (
+    <div className="border-b border-ink-200">
+      <div className="px-4 pt-2.5 pb-1 text-xs font-semibold text-ink-700 uppercase tracking-wide">{children}</div>
+      {decorated && (
+        <pre className="px-4 pb-1.5 ascii-logo text-ink-300 text-[8px] leading-none select-none">════════════════════════════════════════════════════════════</pre>
+      )}
+    </div>
+  )
 }
 
 function StatLine({ label, value, accent }) {
@@ -151,9 +160,8 @@ function MeritAllocation({ merits, unspent }) {
   )
 }
 
-function AwardRow({ award, earned, expanded, onToggle }) {
+function AwardRow({ award, earned, expanded, onToggle, progress, showProgress }) {
   const cat = detectCategory(award.name, award.description)
-  const diff = detectDifficulty(award.name, award.description)
   const tip = getTip(award.name)
 
   return (
@@ -176,14 +184,26 @@ function AwardRow({ award, earned, expanded, onToggle }) {
         </td>
         <td className="px-4 py-2 text-sm text-ink-500">{award.description ?? '\u2014'}</td>
         <td className="px-4 py-2 w-24 text-xs text-ink-500">{cat}</td>
-        <td className="px-4 py-2 w-20">
-          {!earned && <span className={`text-[11px] px-2 py-0.5 rounded ${DIFF_BADGE[diff]}`}>{diff}</span>}
-        </td>
+        {showProgress && (
+          <td className="px-4 py-2 w-56">
+            {!earned && progress ? (
+              <div className="font-mono text-[10px]">
+                <div className="flex items-center gap-2">
+                  <span className="text-accent-dark">{asciiBar(progress.percent, 14)}</span>
+                  <span className="text-ink-700 font-semibold">{progress.percent}%</span>
+                </div>
+                <div className="text-ink-500 mt-0.5">
+                  {formatNumber(progress.current)} / {formatNumber(progress.target)}
+                </div>
+              </div>
+            ) : null}
+          </td>
+        )}
       </tr>
       {expanded && tip && (
         <tr className="bg-warn-light/40 border-t border-ink-100">
           <td></td>
-          <td colSpan="4" className="px-4 py-2 text-sm text-ink-700">
+          <td colSpan={showProgress ? 4 : 3} className="px-4 py-2 text-sm text-ink-700">
             <span className="font-semibold text-warn">Tip: </span>{tip}
           </td>
         </tr>
@@ -227,6 +247,7 @@ export function MeritGuide({ apiKey }) {
   const [category, setCategory] = useState('All')
   const [expanded, setExpanded] = useState(null)
   const [showDebug, setShowDebug] = useState(false)
+  const [showProgress, setShowProgress] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -351,6 +372,8 @@ export function MeritGuide({ apiKey }) {
             </Card>
           )}
 
+          <pre className="ascii-logo text-ink-300 text-[10px] leading-tight select-none px-2">{SIDEBAR_DIVIDER}</pre>
+
           <button onClick={() => setShowDebug(true)} className="w-full text-xs text-ink-400 hover:text-ink-700 py-1">
             Debug: show raw API
           </button>
@@ -365,7 +388,7 @@ export function MeritGuide({ apiKey }) {
                 awards={allAwards}
                 personalstats={playerData?.personalstats ?? {}}
                 battlestats={playerData?.battlestats ?? {}}
-                topN={3}
+                topN={5}
               />
               <Card>
                 <CardHeader>
@@ -384,11 +407,24 @@ export function MeritGuide({ apiKey }) {
                   </div>
                   <input type="text" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)}
                     className="bg-white border border-ink-200 rounded px-3 py-1 text-xs text-ink-900 focus:outline-none focus:border-accent flex-1 max-w-xs" />
+
+                  <button
+                    onClick={() => setShowProgress(p => !p)}
+                    className={`px-3 py-1 text-xs border rounded transition-colors ${showProgress ? 'bg-accent text-white border-accent' : 'bg-white text-ink-700 border-ink-200 hover:bg-ink-50'}`}
+                  >
+                    {showProgress ? '[x] Progress on' : '[ ] Show progress'}
+                  </button>
+
                   <span className="text-xs text-ink-400 ml-auto">{filtered.length} showing</span>
                 </div>
                 {filtered.length === 0 ? (
-                  <div className="p-12 text-center text-sm text-ink-400">
-                    {filter === 'needed' ? 'All complete in this category.' : 'No awards match.'}
+                  <div className="p-12 text-center">
+                    <pre className="ascii-logo text-accent-dark text-[10px] leading-tight inline-block">
+{filter === 'needed' ? EMPTY_DONE : EMPTY_NONE}
+                    </pre>
+                    <p className="mt-4 text-sm text-ink-500">
+                      {filter === 'needed' ? 'All complete in this category.' : 'No awards match your filters.'}
+                    </p>
                   </div>
                 ) : (
                   <table className="w-full text-sm">
@@ -398,15 +434,26 @@ export function MeritGuide({ apiKey }) {
                         <th className="px-4 py-2 text-left font-medium">Name</th>
                         <th className="px-4 py-2 text-left font-medium">Description</th>
                         <th className="px-4 py-2 text-left font-medium">Category</th>
-                        <th className="px-4 py-2 text-left font-medium">Difficulty</th>
+                        {showProgress && <th className="px-4 py-2 text-left font-medium">Progress</th>}
                       </tr>
                     </thead>
                     <tbody>
-                      {filtered.map(a => (
-                        <AwardRow key={`${tab}-${a.id}`} award={a} earned={a.earned}
-                          expanded={expanded === `${tab}-${a.id}`}
-                          onToggle={() => setExpanded(expanded === `${tab}-${a.id}` ? null : `${tab}-${a.id}`)} />
-                      ))}
+                      {filtered.map(a => {
+                        const progress = !a.earned
+                          ? estimateProgress(a, playerData?.personalstats ?? {}, playerData?.battlestats ?? {})
+                          : null
+                        return (
+                          <AwardRow
+                            key={`${tab}-${a.id}`}
+                            award={a}
+                            earned={a.earned}
+                            expanded={expanded === `${tab}-${a.id}`}
+                            onToggle={() => setExpanded(expanded === `${tab}-${a.id}` ? null : `${tab}-${a.id}`)}
+                            progress={progress}
+                            showProgress={showProgress}
+                          />
+                        )
+                      })}
                     </tbody>
                   </table>
                 )}
