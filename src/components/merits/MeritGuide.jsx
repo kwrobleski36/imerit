@@ -51,40 +51,35 @@ function getTip(name) {
 
 const CATEGORIES = ['All', 'Combat', 'Crimes', 'Education', 'Travel', 'Stats', 'Social', 'Medical', 'Economy', 'Casino', 'Level', 'Other']
 
-// ─── ASCII flourishes ────────────────────────────────────────────────────────
-const SIDEBAR_DIVIDER  = '> ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─'
-const EMPTY_DONE = `   ___ ___  __  __ ___ _    ___ _____ ___
+const EMPTY_DONE = `   ___ ___  __  __ ___ _    ___ _____ ___ 
   / __/ _ \\|  \\/  | _ \\ |  | __|_   _| __|
- | (_| (_) | |\\/| |  _/ |__| _|  | | | _|
+ | (_| (_) | |\\/| |  _/ |__| _|  | | | _| 
   \\___\\___/|_|  |_|_| |____|___| |_| |___|`
 
-const EMPTY_NONE = `   _  _  ___    __  __    _ _____ ___ _  _
+const EMPTY_NONE = `   _  _  ___    __  __    _ _____ ___ _  _ 
   | \\| |/ _ \\  |  \\/  |  /_\\_   _/ __| || |
   | .\` | (_) | | |\\/| | / _ \\| || (__| __ |
   |_|\\_|\\___/  |_|  |_|/_/ \\_\\_| \\___|_||_|`
 
-// ─── UI primitives ───────────────────────────────────────────────────────────
+// ─── Primitives ──────────────────────────────────────────────────────────────
 
 function Card({ children, className = '' }) {
   return <div className={`bg-white border border-ink-200 rounded-md ${className}`}>{children}</div>
 }
 
-function CardHeader({ children, decorated = true }) {
+function CardHeader({ children }) {
   return (
-    <div className="border-b border-ink-200">
-      <div className="px-4 pt-2.5 pb-1 text-xs font-semibold text-ink-700 uppercase tracking-wide">{children}</div>
-      {decorated && (
-        <pre className="px-4 pb-1.5 ascii-logo text-ink-300 text-[8px] leading-none select-none">════════════════════════════════════════════════════════════</pre>
-      )}
+    <div className="px-4 py-2.5 border-b border-ink-200 font-mono text-xs font-bold text-ink-700 uppercase tracking-wide">
+      [ {children} ]
     </div>
   )
 }
 
 function StatLine({ label, value, accent }) {
   return (
-    <div className="flex justify-between items-center px-4 py-1.5 text-sm border-b border-ink-100 last:border-0">
+    <div className="flex justify-between items-baseline px-4 py-1 font-mono text-[13px] border-b border-ink-100 last:border-0">
       <span className="text-ink-500">{label}</span>
-      <span className={`font-medium ${accent ?? 'text-ink-900'}`}>{value}</span>
+      <span className={`font-bold ${accent ?? 'text-ink-900'}`}>{value}</span>
     </div>
   )
 }
@@ -113,8 +108,8 @@ function MeritAllocation({ merits, unspent }) {
     return (
       <Card>
         <CardHeader>Merit Allocations</CardHeader>
-        <div className="p-6 text-sm text-ink-500 text-center">
-          No merit data returned. Make sure your key has access to user / merits.
+        <div className="p-6 text-sm font-mono text-ink-500 text-center">
+          &gt; No merit data returned. Make sure your key has access to user / merits.
         </div>
       </Card>
     )
@@ -125,12 +120,12 @@ function MeritAllocation({ merits, unspent }) {
       <CardHeader>
         Merit Allocations &middot; {totalSpent} spent{unspent != null && ` · ${unspent} unspent`}
       </CardHeader>
-      <table className="w-full text-sm">
+      <table className="w-full font-mono text-sm">
         <thead className="bg-ink-50">
-          <tr className="text-xs text-ink-500 uppercase tracking-wide">
-            <th className="px-4 py-2 text-left font-medium">Upgrade</th>
-            <th className="px-4 py-2 text-left font-medium w-44">Level</th>
-            <th className="px-4 py-2 text-left font-medium w-20">Cost</th>
+          <tr className="text-[11px] text-ink-500 uppercase tracking-wide">
+            <th className="px-4 py-2 text-left font-bold">Upgrade</th>
+            <th className="px-4 py-2 text-left font-bold w-44">Level</th>
+            <th className="px-4 py-2 text-left font-bold w-20">Cost</th>
           </tr>
         </thead>
         <tbody>
@@ -142,12 +137,10 @@ function MeritAllocation({ merits, unspent }) {
                 <td className="px-4 py-2 text-ink-900">{prettyLabel(key)}</td>
                 <td className="px-4 py-2">
                   <div className="flex items-center gap-2">
-                    <div className="flex gap-0.5">
-                      {Array.from({ length: 10 }, (_, i) => (
-                        <div key={i} className={`w-2.5 h-3 rounded-sm ${i < lvl ? 'bg-accent' : 'bg-ink-200'}`} />
-                      ))}
-                    </div>
-                    <span className="text-ink-500 text-xs ml-1">{lvl}/10</span>
+                    <span className="text-accent-dark text-[12px]">
+                      [{'\u2588'.repeat(lvl)}{'\u2591'.repeat(10 - lvl)}]
+                    </span>
+                    <span className="text-ink-500 text-xs">{lvl}/10</span>
                   </div>
                 </td>
                 <td className="px-4 py-2 text-ink-500 text-xs">{cost}</td>
@@ -168,29 +161,25 @@ function AwardRow({ award, earned, expanded, onToggle, progress, showProgress })
     <>
       <tr onClick={tip ? onToggle : undefined}
         className={`border-t border-ink-100 ${earned ? 'bg-accent-light/30' : 'bg-white hover:bg-ink-50'} ${tip ? 'cursor-pointer' : ''}`}>
-        <td className="px-4 py-2 w-8">
-          <div className={`w-4 h-4 rounded border ${earned ? 'bg-accent border-accent' : 'border-ink-300 bg-white'} flex items-center justify-center`}>
-            {earned && (
-              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12">
-                <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            )}
-          </div>
+        <td className="px-4 py-2 w-10 font-mono text-sm text-center">
+          <span className={earned ? 'text-accent-dark font-bold' : 'text-ink-300'}>
+            {earned ? '[X]' : '[ ]'}
+          </span>
         </td>
         <td className="px-4 py-2 w-1/4">
-          <span className={`text-sm font-medium ${earned ? 'text-ink-500 line-through' : 'text-ink-900'}`}>
+          <span className={`font-mono text-sm font-bold ${earned ? 'text-ink-500 line-through' : 'text-ink-900'}`}>
             {award.name ?? `#${award.id}`}
           </span>
         </td>
-        <td className="px-4 py-2 text-sm text-ink-500">{award.description ?? '\u2014'}</td>
-        <td className="px-4 py-2 w-24 text-xs text-ink-500">{cat}</td>
+        <td className="px-4 py-2 font-mono text-[13px] text-ink-500">{award.description ?? '\u2014'}</td>
+        <td className="px-4 py-2 w-24 font-mono text-xs text-ink-500">{cat}</td>
         {showProgress && (
           <td className="px-4 py-2 w-56">
             {!earned && progress ? (
               <div className="font-mono text-[10px]">
                 <div className="flex items-center gap-2">
                   <span className="text-accent-dark">{asciiBar(progress.percent, 14)}</span>
-                  <span className="text-ink-700 font-semibold">{progress.percent}%</span>
+                  <span className="text-ink-700 font-bold">{progress.percent}%</span>
                 </div>
                 <div className="text-ink-500 mt-0.5">
                   {formatNumber(progress.current)} / {formatNumber(progress.target)}
@@ -203,8 +192,8 @@ function AwardRow({ award, earned, expanded, onToggle, progress, showProgress })
       {expanded && tip && (
         <tr className="bg-warn-light/40 border-t border-ink-100">
           <td></td>
-          <td colSpan={showProgress ? 4 : 3} className="px-4 py-2 text-sm text-ink-700">
-            <span className="font-semibold text-warn">Tip: </span>{tip}
+          <td colSpan={showProgress ? 4 : 3} className="px-4 py-2 font-mono text-[13px] text-ink-700">
+            <span className="font-bold text-warn">&gt; TIP: </span>{tip}
           </td>
         </tr>
       )}
@@ -217,18 +206,18 @@ function DebugPanel({ open, onClose }) {
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6" onClick={onClose}>
       <div onClick={e => e.stopPropagation()} className="bg-white rounded-lg max-w-3xl w-full max-h-[80vh] overflow-hidden flex flex-col">
-        <div className="px-4 py-3 border-b border-ink-200 flex items-center justify-between">
-          <h3 className="font-semibold text-sm">Raw API Responses (debug)</h3>
-          <button onClick={onClose} className="text-ink-500 hover:text-ink-900">close</button>
+        <div className="px-4 py-3 border-b border-ink-200 flex items-center justify-between font-mono">
+          <h3 className="font-bold text-sm">[ DEBUG: RAW API ]</h3>
+          <button onClick={onClose} className="text-ink-500 hover:text-ink-900 text-xs">[ close ]</button>
         </div>
-        <div className="overflow-auto p-4 space-y-4">
+        <div className="overflow-auto p-4 space-y-4 font-mono">
           <div>
-            <p className="text-xs font-semibold text-ink-700 mb-1">user/?selections=...</p>
-            <pre className="bg-ink-50 border border-ink-200 rounded p-3 text-[11px] font-mono overflow-auto max-h-64">{JSON.stringify(debug.user, null, 2)}</pre>
+            <p className="text-xs font-bold text-ink-700 mb-1">user/?selections=...</p>
+            <pre className="bg-ink-50 border border-ink-200 rounded p-3 text-[11px] overflow-auto max-h-64">{JSON.stringify(debug.user, null, 2)}</pre>
           </div>
           <div>
-            <p className="text-xs font-semibold text-ink-700 mb-1">torn/?selections=honors,medals (truncated)</p>
-            <pre className="bg-ink-50 border border-ink-200 rounded p-3 text-[11px] font-mono overflow-auto max-h-64">{JSON.stringify(debug.torn, null, 2).slice(0, 3000)}...</pre>
+            <p className="text-xs font-bold text-ink-700 mb-1">torn/?selections=honors,medals (truncated)</p>
+            <pre className="bg-ink-50 border border-ink-200 rounded p-3 text-[11px] overflow-auto max-h-64">{JSON.stringify(debug.torn, null, 2).slice(0, 3000)}...</pre>
           </div>
         </div>
       </div>
@@ -312,14 +301,14 @@ export function MeritGuide({ apiKey }) {
     return counts
   }, [awards])
 
-  if (loading) return <div className="max-w-[1400px] mx-auto px-6 py-16 text-center text-sm text-ink-500">Loading from Torn API...</div>
+  if (loading) return <div className="max-w-[1400px] mx-auto px-6 py-16 text-center font-mono text-sm text-ink-500">&gt; Loading from Torn API...</div>
   if (error) return (
     <div className="max-w-md mx-auto mt-16">
       <Card>
-        <div className="px-4 py-2 bg-bad text-white text-sm font-semibold">API Error</div>
-        <div className="p-4 text-sm">
-          <p className="text-ink-900 mb-2">{error}</p>
-          <p className="text-ink-500 text-xs">Your key needs access to user and torn sections.</p>
+        <div className="px-4 py-2 bg-bad text-white text-sm font-mono font-bold">[ API ERROR ]</div>
+        <div className="p-4 font-mono text-sm">
+          <p className="text-ink-900 mb-2">! {error}</p>
+          <p className="text-ink-500 text-xs">&gt; Your key needs access to user and torn sections.</p>
         </div>
       </Card>
     </div>
@@ -335,7 +324,7 @@ export function MeritGuide({ apiKey }) {
             <CardHeader>Player</CardHeader>
             <StatLine label="Name" value={profile.name ?? '\u2014'} />
             <StatLine label="Level" value={profile.level ?? '\u2014'} />
-            <StatLine label="Age" value={profile.age ? `${profile.age} days` : '\u2014'} />
+            <StatLine label="Age" value={profile.age ? `${profile.age}d` : '\u2014'} />
             {profile.money_onhand != null && (
               <StatLine label="Money" value={`$${profile.money_onhand.toLocaleString()}`} accent="text-accent-dark" />
             )}
@@ -343,8 +332,8 @@ export function MeritGuide({ apiKey }) {
 
           <Card>
             <CardHeader>Progress</CardHeader>
-            <StatLine label="Honors" value={`${honorEarned} / ${honorList.length}`} />
-            <StatLine label="Medals" value={`${medalEarned} / ${medalList.length}`} />
+            <StatLine label="Honors" value={`${honorEarned}/${honorList.length}`} />
+            <StatLine label="Medals" value={`${medalEarned}/${medalList.length}`} />
             <StatLine label="Earned" value={honorEarned + medalEarned} accent="text-accent-dark" />
           </Card>
 
@@ -352,8 +341,8 @@ export function MeritGuide({ apiKey }) {
             <CardHeader>View</CardHeader>
             {[['honors','Honors',honorList.length],['medals','Medals',medalList.length],['merits','Allocations',null]].map(([key,label,count]) => (
               <button key={key} onClick={() => setTab(key)}
-                className={`w-full flex items-center justify-between px-4 py-2 text-sm border-b border-ink-100 last:border-0 transition-colors ${tab === key ? 'bg-accent-light text-accent-dark font-medium' : 'text-ink-700 hover:bg-ink-50'}`}>
-                <span>{label}</span>
+                className={`w-full flex items-center justify-between px-4 py-1.5 font-mono text-sm border-b border-ink-100 last:border-0 transition-colors ${tab === key ? 'bg-accent-light text-accent-dark font-bold' : 'text-ink-700 hover:bg-ink-50'}`}>
+                <span>{tab === key ? '> ' : '  '}{label}</span>
                 {count != null && <span className="text-xs text-ink-400">{count}</span>}
               </button>
             ))}
@@ -364,18 +353,16 @@ export function MeritGuide({ apiKey }) {
               <CardHeader>Categories</CardHeader>
               {CATEGORIES.map(cat => (
                 <button key={cat} onClick={() => setCategory(cat)}
-                  className={`w-full flex items-center justify-between px-4 py-1.5 text-sm border-b border-ink-100 last:border-0 transition-colors ${category === cat ? 'bg-accent-light text-accent-dark font-medium' : 'text-ink-700 hover:bg-ink-50'}`}>
-                  <span>{cat}</span>
+                  className={`w-full flex items-center justify-between px-4 py-1 font-mono text-sm border-b border-ink-100 last:border-0 transition-colors ${category === cat ? 'bg-accent-light text-accent-dark font-bold' : 'text-ink-700 hover:bg-ink-50'}`}>
+                  <span>{category === cat ? '> ' : '  '}{cat}</span>
                   <span className="text-xs text-ink-400">{categoryCounts[cat] ?? 0}</span>
                 </button>
               ))}
             </Card>
           )}
 
-          <pre className="ascii-logo text-ink-300 text-[10px] leading-tight select-none px-2">{SIDEBAR_DIVIDER}</pre>
-
-          <button onClick={() => setShowDebug(true)} className="w-full text-xs text-ink-400 hover:text-ink-700 py-1">
-            Debug: show raw API
+          <button onClick={() => setShowDebug(true)} className="w-full font-mono text-xs text-ink-400 hover:text-ink-700 py-1">
+            [ Debug: raw API ]
           </button>
         </aside>
 
@@ -396,23 +383,23 @@ export function MeritGuide({ apiKey }) {
                   {category !== 'All' && ` / ${category}`}
                   {' '}&middot; {earned}/{total} ({pct}%)
                 </CardHeader>
-                <div className="px-4 py-3 border-b border-ink-200 bg-ink-50 flex items-center gap-3 flex-wrap">
+                <div className="px-4 py-3 border-b border-ink-200 bg-ink-50 flex items-center gap-3 flex-wrap font-mono">
                   <div className="flex bg-white border border-ink-200 rounded overflow-hidden">
                     {[['needed','Needed'],['earned','Earned'],['all','All']].map(([k,label]) => (
                       <button key={k} onClick={() => setFilter(k)}
-                        className={`px-3 py-1 text-xs border-r border-ink-200 last:border-0 ${filter === k ? 'bg-accent text-white font-medium' : 'text-ink-700 hover:bg-ink-50'}`}>
-                        {label}
+                        className={`px-3 py-1 text-xs border-r border-ink-200 last:border-0 ${filter === k ? 'bg-accent text-white font-bold' : 'text-ink-700 hover:bg-ink-50'}`}>
+                        {filter === k ? '(*)' : '( )'} {label}
                       </button>
                     ))}
                   </div>
-                  <input type="text" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)}
-                    className="bg-white border border-ink-200 rounded px-3 py-1 text-xs text-ink-900 focus:outline-none focus:border-accent flex-1 max-w-xs" />
+                  <input type="text" placeholder="search..." value={search} onChange={e => setSearch(e.target.value)}
+                    className="bg-white border border-ink-200 rounded px-3 py-1 text-xs font-mono text-ink-900 focus:outline-none focus:border-accent flex-1 max-w-xs" />
 
                   <button
                     onClick={() => setShowProgress(p => !p)}
-                    className={`px-3 py-1 text-xs border rounded transition-colors ${showProgress ? 'bg-accent text-white border-accent' : 'bg-white text-ink-700 border-ink-200 hover:bg-ink-50'}`}
+                    className={`px-3 py-1 text-xs border rounded font-mono transition-colors ${showProgress ? 'bg-accent text-white border-accent' : 'bg-white text-ink-700 border-ink-200 hover:bg-ink-50'}`}
                   >
-                    {showProgress ? '[x] Progress on' : '[ ] Show progress'}
+                    [{showProgress ? 'X' : ' '}] Progress
                   </button>
 
                   <span className="text-xs text-ink-400 ml-auto">{filtered.length} showing</span>
@@ -422,19 +409,19 @@ export function MeritGuide({ apiKey }) {
                     <pre className="ascii-logo text-accent-dark text-[10px] leading-tight inline-block">
 {filter === 'needed' ? EMPTY_DONE : EMPTY_NONE}
                     </pre>
-                    <p className="mt-4 text-sm text-ink-500">
-                      {filter === 'needed' ? 'All complete in this category.' : 'No awards match your filters.'}
+                    <p className="mt-4 font-mono text-sm text-ink-500">
+                      &gt; {filter === 'needed' ? 'All complete in this category.' : 'No awards match your filters.'}
                     </p>
                   </div>
                 ) : (
                   <table className="w-full text-sm">
                     <thead className="bg-ink-50">
-                      <tr className="text-xs text-ink-500 uppercase tracking-wide">
-                        <th className="px-4 py-2 text-left font-medium w-8"></th>
-                        <th className="px-4 py-2 text-left font-medium">Name</th>
-                        <th className="px-4 py-2 text-left font-medium">Description</th>
-                        <th className="px-4 py-2 text-left font-medium">Category</th>
-                        {showProgress && <th className="px-4 py-2 text-left font-medium">Progress</th>}
+                      <tr className="font-mono text-[11px] text-ink-500 uppercase tracking-wide">
+                        <th className="px-4 py-2 text-left font-bold w-10"></th>
+                        <th className="px-4 py-2 text-left font-bold">Name</th>
+                        <th className="px-4 py-2 text-left font-bold">Description</th>
+                        <th className="px-4 py-2 text-left font-bold">Category</th>
+                        {showProgress && <th className="px-4 py-2 text-left font-bold">Progress</th>}
                       </tr>
                     </thead>
                     <tbody>

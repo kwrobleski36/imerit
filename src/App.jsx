@@ -9,18 +9,31 @@ const LOGO_BIG = ` _ __  __           _ _
 | | |  | |  __/ |  | | |_ 
 |_|_|  |_|\\___|_|  |_|\\__|`
 
-export default function App() {
-  const [apiKey, setApiKey]         = useState(() => sessionStorage.getItem('imerit_key') ?? null)
-  const [playerName, setPlayerName] = useState(() => sessionStorage.getItem('imerit_player') ?? null)
+// Try persistent storage first, then session
+function getStored(key) {
+  return localStorage.getItem(key) ?? sessionStorage.getItem(key)
+}
 
-  function handleLogin(key, name) {
-    sessionStorage.setItem('imerit_key', key)
-    sessionStorage.setItem('imerit_player', name ?? '')
+export default function App() {
+  const [apiKey, setApiKey]         = useState(() => getStored('imerit_key') ?? null)
+  const [playerName, setPlayerName] = useState(() => getStored('imerit_player') ?? null)
+
+  function handleLogin(key, name, remember) {
+    const store = remember ? localStorage : sessionStorage
+    // Clear from both stores first to keep them in sync
+    localStorage.removeItem('imerit_key')
+    localStorage.removeItem('imerit_player')
+    sessionStorage.removeItem('imerit_key')
+    sessionStorage.removeItem('imerit_player')
+    store.setItem('imerit_key', key)
+    store.setItem('imerit_player', name ?? '')
     setApiKey(key)
     setPlayerName(name)
   }
 
   function handleLogout() {
+    localStorage.removeItem('imerit_key')
+    localStorage.removeItem('imerit_player')
     sessionStorage.removeItem('imerit_key')
     sessionStorage.removeItem('imerit_player')
     setApiKey(null)
@@ -43,9 +56,9 @@ export default function App() {
             )}
             <button
               onClick={handleLogout}
-              className="text-xs text-ink-500 hover:text-bad transition-colors mt-1"
+              className="text-xs font-mono text-ink-500 hover:text-bad transition-colors mt-1"
             >
-              Sign out
+              [ Sign out ]
             </button>
           </div>
         </div>
