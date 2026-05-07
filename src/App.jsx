@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { Login } from './components/Login'
 import { MeritGuide } from './components/merits/MeritGuide'
+import { nameToAscii } from './utils/asciiFont'
 
-const LOGO = `iMerit`
-const LOGO_BIG = `
- _ __  __           _ _   
+const LOGO_BIG = ` _ __  __           _ _   
 (_)  \\/  | ___ _ __(_) |_ 
 | | |\\/| |/ _ \\ '__| | __|
 | | |  | |  __/ |  | | |_ 
@@ -30,21 +29,21 @@ export default function App() {
 
   if (!apiKey) return <Login onSubmit={handleLogin} />
 
+  const playerAscii = playerName ? nameToAscii(playerName) : ''
+
   return (
     <div className="min-h-screen">
       <header className="bg-white border-b border-ink-200">
-        <div className="max-w-[1400px] mx-auto px-6 py-4 flex items-center justify-between">
-          <pre className="ascii-logo text-ink-900 text-[10px] hidden md:block">{LOGO_BIG}</pre>
-          <span className="ascii-logo text-ink-900 text-xl md:hidden">{LOGO}</span>
-          <div className="flex items-center gap-4 text-xs">
-            {playerName && (
-              <span className="text-ink-500">
-                Signed in as <span className="text-ink-900 font-medium">{playerName}</span>
-              </span>
+        <div className="max-w-[1400px] mx-auto px-6 py-4 flex items-start justify-between gap-6">
+          <pre className="ascii-logo text-ink-900 text-[10px] sm:text-[11px] leading-none">{LOGO_BIG}</pre>
+
+          <div className="flex items-start gap-4 flex-shrink-0">
+            {playerAscii && (
+              <pre className="ascii-logo text-accent-dark text-[7px] sm:text-[8px] leading-none hidden sm:block">{playerAscii}</pre>
             )}
             <button
               onClick={handleLogout}
-              className="text-ink-500 hover:text-bad transition-colors"
+              className="text-xs text-ink-500 hover:text-bad transition-colors mt-1"
             >
               Sign out
             </button>
