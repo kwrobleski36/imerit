@@ -1,37 +1,49 @@
 // Maps awards to player progress based on Torn personalstats / battlestats.
 // Field names verified against TornAPI docs.
 
-// Crime 2.0 categories → personalstats field names
-const CRIME_FIELDS = [
-  // [keyword in description, personalstats field]
-  ['theft',                'theft'],
-  ['bootlegging',          'illegalproduction'],
-  ['illegal production',   'illegalproduction'],
-  ['drug dealing',         'illicitservices'],
-  ['illicit',              'illicitservices'],
-  ['arson',                'fraud'],
-  ['fraud',                'fraud'],
-  ['counterfeit',          'counterfeiting'],
-  ['forgery',              'counterfeiting'],
-  ['cybercrime',           'cybercrime'],
-  ['cyber',                'cybercrime'],
-  ['hacking',              'cybercrime'],
-  ['extortion',            'extortion'],
-  ['hustling',             'extortion'],
-  ['vandalism',            'vandalism'],
-  ['graffiti',             'vandalism'],
-  ['manual labor',         'manuallabor'],
-  ['search for cash',      'manuallabor'],
-  ['other crimes',         'manuallabor'],   // best guess for "other"
+// ─── Crimes 1.0 detection ────────────────────────────────────────
+// These honors are tied to the OLD Crimes 1.0 system. Players who started
+// (or migrated to) Crimes 2.0 cannot earn them — the underlying personalstats
+// fields are frozen. We exclude these from progress estimation entirely.
+const LEGACY_CRIME_1_KEYWORDS = [
+  'grand theft auto',
+  'gta crime',
+  'auto theft',
+  'pickpocket',
+  'shoplift',
+  'larceny',
+  'armed robber',
+  'kidnap',
+  'transport drug',
+  'arms trafficking',
+  'bombing crime',
+  'stealth virus',
+  'warehouse arson',
+  'search for cash crime',
+  'sell copied media',
+  'plant a virus',
+  'plant a comp',
+  'pawn shop crime',
+  'assassinate',
+  'computer crime',
+  'murder crime',
+  'fraud crime',
+  'drug deal crime',
+  'sell illegal',
+  'theft crime',  // generic 1.0 phrasing — 2.0 uses different language
+  'other crime',  // 1.0 only
 ]
 
-function detectCrimeField(text) {
-  const lower = text.toLowerCase()
-  for (const [kw, field] of CRIME_FIELDS) {
-    if (lower.includes(kw)) return field
-  }
-  return null
+function isLegacyCrime1(award) {
+  const text = `${award.name ?? ''} ${award.description ?? ''}`.toLowerCase()
+  return LEGACY_CRIME_1_KEYWORDS.some(kw => text.includes(kw))
 }
+
+export function isLegacy(award) {
+  return isLegacyCrime1(award)
+}
+
+// ─── Progress mappings ────────────────────────────────────────
 
 function extractTarget(description = '') {
   const m = description.match(/([\d,]+)/)
@@ -41,14 +53,13 @@ function extractTarget(description = '') {
 }
 
 const KNOWN = [
-  // ─── Specific named honors ─────────────────────────────────────
+  // Specific named honors
   { pattern: /^sidekick$/i,             field: 'attacksassisted',      target: 250 },
   { pattern: /^happy slapper$/i,        field: 'attackswon',           target: 250 },
   { pattern: /^fall camo$/i,            field: 'defendswon',           target: 250 },
   { pattern: /^big shot$/i,             field: 'attackhits',           target: 1000 },
   { pattern: /^marksman$/i,             field: 'attackcriticalhits',   target: 100 },
   { pattern: /^one in a million$/i,     field: 'attackcriticalhits',   target: 1000 },
-  { pattern: /^stalemate$/i,            field: 'attacksstealthed',     target: 100 },
 
   // Combat
   { pattern: /tooth and nail/i,         field: 'attackswon',           target: 2500 },
@@ -58,7 +69,7 @@ const KNOWN = [
   { pattern: /lead salad/i,             field: 'roundsfired',          target: 100000 },
   { pattern: /peppered/i,               field: 'roundsfired',          target: 1000000 },
 
-  // Phrase-priority (before generic attack)
+  // Phrase priority
   { pattern: /assist/i,                 field: 'attacksassisted',      target: null },
   { pattern: /defend/i,                 field: 'defendswon',           target: null },
   { pattern: /critical/i,               field: 'attackcriticalhits',   target: null },
@@ -95,10 +106,12 @@ const KNOWN = [
 ]
 
 export function estimateProgress(award, personalstats = {}, battlestats = {}) {
+  // Skip Crimes 1.0 legacy honors — players on 2.0 can't earn them
+  if (isLegacy(award)) return null
+
   const text = `${award.name ?? ''} ${award.description ?? ''}`
   const desc = (award.description ?? '').toLowerCase()
 
-  // Step 1: explicit pattern rules
   for (const rule of KNOWN) {
     if (rule.pattern.test(text)) {
       const source = rule.source === 'battle' ? battlestats : personalstats
@@ -111,18 +124,7 @@ export function estimateProgress(award, personalstats = {}, battlestats = {}) {
     }
   }
 
-  // Step 2: crime-type detection (priority for "Achieve N <type> crimes" awards)
-  if (desc.includes('crime')) {
-    const field = detectCrimeField(text)
-    const target = extractTarget(award.description)
-    if (field && target && personalstats[field] != null) {
-      const current = Number(personalstats[field])
-      const percent = Math.min(100, Math.round((current / target) * 100))
-      return { current, target, percent }
-    }
-  }
-
-  // Step 3: heuristic fallback for non-crime awards
+  // Heuristic fallback (non-crime only)
   const target = extractTarget(award.description)
   if (!target) return null
 
@@ -131,7 +133,6 @@ export function estimateProgress(award, personalstats = {}, battlestats = {}) {
     { kw: 'defend',       field: 'defendswon' },
     { kw: 'critical',     field: 'attackcriticalhits' },
     { kw: 'mug',          field: 'attacksmugged' },
-    { kw: 'hospitalize',  field: 'hospitalized' },
     { kw: 'energy drink', field: 'energydrinkused' },
     { kw: 'cannabis',     field: 'cantaken' },
     { kw: 'xanax',        field: 'xantaken' },
@@ -142,8 +143,6 @@ export function estimateProgress(award, personalstats = {}, battlestats = {}) {
     { kw: 'round',        field: 'roundsfired' },
     { kw: 'item',         field: 'itemsbought' },
     { kw: 'revive',       field: 'revives' },
-    { kw: 'bust',         field: 'jailsbusted' },
-    { kw: 'attack',       field: 'attackswon' },
     { kw: 'auction',      field: 'auctionswon' },
     { kw: 'overdose',     field: 'overdosed' },
     { kw: 'hospital',     field: 'hospital' },
@@ -151,6 +150,7 @@ export function estimateProgress(award, personalstats = {}, battlestats = {}) {
     { kw: 'mission',      field: 'missioncompleted' },
     { kw: 'point',        field: 'pointsbought' },
     { kw: 'book',         field: 'booksread' },
+    { kw: 'attack',       field: 'attackswon' },
   ]
 
   for (const g of guesses) {

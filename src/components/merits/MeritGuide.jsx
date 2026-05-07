@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { fetchTornAwards, fetchPlayerAwards, debug } from '../../services/tornApi'
 import { NextClosest } from './NextClosest'
-import { estimateProgress, formatNumber, asciiBar } from '../../utils/progressEstimator'
+import { estimateProgress, formatNumber, asciiBar, isLegacy } from '../../utils/progressEstimator'
 
 const CATEGORY_RULES = [
   { label: 'Combat',    keys: ['attack','defeat','kill','mug','hospitalize','fight','war','chain','stab','shoot','punch','kick','bash','assassin','hitman','slaughter','massacre','blood','revenge','aggress','devastat','terror','retali','critical','headshot','carnage','victor','lethal'] },
@@ -156,6 +156,7 @@ function MeritAllocation({ merits, unspent }) {
 function AwardRow({ award, earned, expanded, onToggle, progress, showProgress }) {
   const cat = detectCategory(award.name, award.description)
   const tip = getTip(award.name)
+  const legacy = isLegacy(award) && !earned
 
   return (
     <>
@@ -167,9 +168,12 @@ function AwardRow({ award, earned, expanded, onToggle, progress, showProgress })
           </span>
         </td>
         <td className="px-4 py-2 w-1/4">
-          <span className={`font-mono text-sm font-bold ${earned ? 'text-ink-500 line-through' : 'text-ink-900'}`}>
+          <span className={`font-mono text-sm font-bold ${earned ? 'text-ink-500 line-through' : legacy ? 'text-ink-400' : 'text-ink-900'}`}>
             {award.name ?? `#${award.id}`}
           </span>
+          {legacy && (
+            <span className="ml-2 font-mono text-[10px] px-1.5 py-0.5 rounded bg-ink-100 text-ink-500">LEGACY 1.0</span>
+          )}
         </td>
         <td className="px-4 py-2 font-mono text-[13px] text-ink-500">{award.description ?? '\u2014'}</td>
         <td className="px-4 py-2 w-24 font-mono text-xs text-ink-500">{cat}</td>
