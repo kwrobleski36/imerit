@@ -1,14 +1,27 @@
 // Maps awards to player progress based on personalstats and battlestats.
+// Order matters: more specific patterns must come BEFORE broader ones.
 const KNOWN = [
+  // ─── Specific named honors ──────────────────────────────────────
+  { pattern: /^sidekick$/i,             field: 'attacksassisted',      target: 250 },
+  { pattern: /^happy slapper$/i,        field: 'attackswon',           target: 250 },
+  { pattern: /^fall camo$/i,            field: 'defendswon',           target: 250 },
+  { pattern: /^big shot$/i,             field: 'attackshits',          target: 1000 },
+  { pattern: /^marksman$/i,             field: 'attackcriticalhits',   target: 100 },
+  { pattern: /^one in a million$/i,     field: 'attackcriticalhits',   target: 1000 },
+
   // Combat / Attacks
   { pattern: /tooth and nail/i,         field: 'attackswon',           target: 2500 },
   { pattern: /coup de grace/i,          field: 'attackswon',           target: 5000 },
   { pattern: /killing spree/i,          field: 'attackswon',           target: 10000 },
   { pattern: /war hero/i,               field: 'attackswon',           target: 50000 },
-  { pattern: /assist.*100/i,            field: 'attacksassisted',      target: 100 },
-  { pattern: /defends won.*1000/i,      field: 'defendswon',           target: 1000 },
   { pattern: /lead salad/i,             field: 'roundsfired',          target: 100000 },
   { pattern: /peppered/i,               field: 'roundsfired',          target: 1000000 },
+
+  // Assists - check BEFORE generic attack patterns
+  { pattern: /assist/i,                 field: 'attacksassisted',      target: null },
+
+  // Defends
+  { pattern: /defend/i,                 field: 'defendswon',           target: null },
 
   // Crimes
   { pattern: /perp.*1,?000/i,           field: 'criminaloffenses',     target: 1000 },
@@ -20,7 +33,6 @@ const KNOWN = [
   { pattern: /crackpot/i,               field: 'xantaken',             target: 250 },
   { pattern: /pill popper/i,            field: 'xantaken',             target: 1000 },
   { pattern: /sodaholic/i,              field: 'energydrinkused',      target: 500 },
-  { pattern: /booster.*100/i,           field: 'boostersused',         target: 100 },
 
   // Money / Economy
   { pattern: /pious/i,                  field: 'churchspent',          target: 100000 },
@@ -34,8 +46,6 @@ const KNOWN = [
   // Education / Jobs
   { pattern: /smart alec/i,             field: 'eduinprogress',        target: 10 },
   { pattern: /wise guy/i,               field: 'eduinprogress',        target: 50 },
-  { pattern: /intern/i,                 field: 'jobpointsused',        target: 100 },
-  { pattern: /stuck in a rut/i,         field: 'jobpointsused',        target: 1000 },
 
   // Stats (battle stats)
   { pattern: /toned/i,                  field: 'total',     source: 'battle', target: 100000 },
@@ -45,51 +55,65 @@ const KNOWN = [
   { pattern: /shredded/i,               field: 'total',     source: 'battle', target: 100000000000 },
   { pattern: /lightspeed/i,             field: 'speed',     source: 'battle', target: 100000000 },
   { pattern: /reinforced/i,             field: 'defense',   source: 'battle', target: 10000000 },
-  { pattern: /freerunner/i,             field: 'dexterity', source: 'battle', target: 10000000 },
-  { pattern: /mighty roar/i,            field: 'strength',  source: 'battle', target: 100000000 },
 
-  // Refills / Nerve
+  // Refills
   { pattern: /you'?ve got some nerve/i, field: 'refills',              target: 250 },
 ]
 
+function extractTarget(description = '') {
+  const m = description.match(/([\d,]+)/)
+  if (!m) return null
+  const n = Number(m[1].replace(/,/g, ''))
+  return n >= 2 ? n : null
+}
+
 export function estimateProgress(award, personalstats = {}, battlestats = {}) {
   const text = `${award.name ?? ''} ${award.description ?? ''}`
+  const desc = (award.description ?? '').toLowerCase()
 
+  // Try explicit rules
   for (const rule of KNOWN) {
     if (rule.pattern.test(text)) {
       const source = rule.source === 'battle' ? battlestats : personalstats
       const current = Number(source[rule.field] ?? 0)
-      if (current == null || isNaN(current)) continue
-      const percent = Math.min(100, Math.round((current / rule.target) * 100))
-      return { current, target: rule.target, percent }
+      if (isNaN(current)) continue
+
+      // If target is null, derive from description
+      const target = rule.target ?? extractTarget(award.description)
+      if (!target) continue
+
+      const percent = Math.min(100, Math.round((current / target) * 100))
+      return { current, target, percent }
     }
   }
 
-  // Heuristic fallback
-  const desc = (award.description ?? '').toLowerCase()
-  const numMatch = desc.match(/([\d,]+)/)
-  if (!numMatch) return null
-  const target = Number(numMatch[1].replace(/,/g, ''))
-  if (!target || target < 2) return null
+  // Heuristic fallback with carefully ordered keyword priority.
+  // More specific phrases first to avoid bleeding into broader matches.
+  const target = extractTarget(award.description)
+  if (!target) return null
 
   const guesses = [
-    { kw: 'attack',       field: 'attackswon' },
-    { kw: 'won',          field: 'attackswon' },
+    // Specific phrases
+    { kw: 'assist',       field: 'attacksassisted' },
     { kw: 'defend',       field: 'defendswon' },
-    { kw: 'kill',         field: 'attackswon' },
+    { kw: 'critical',     field: 'attackcriticalhits' },
     { kw: 'mug',          field: 'attacksmugged' },
-    { kw: 'crime',        field: 'criminaloffenses' },
+    { kw: 'hospitalize',  field: 'attackshospitalized' },
     { kw: 'energy drink', field: 'energydrinkused' },
     { kw: 'cannabis',     field: 'cantaken' },
     { kw: 'xanax',        field: 'xantaken' },
-    { kw: 'travel',       field: 'traveltime' },
     { kw: 'church',       field: 'churchspent' },
     { kw: 'job point',    field: 'jobpointsused' },
+    { kw: 'travel',       field: 'traveltime' },
     { kw: 'refill',       field: 'refills' },
     { kw: 'round',        field: 'roundsfired' },
     { kw: 'item',         field: 'itemsbought' },
     { kw: 'revive',       field: 'revives' },
     { kw: 'bust',         field: 'jailsbusted' },
+    // Broader (last)
+    { kw: 'win',          field: 'attackswon' },
+    { kw: 'attack',       field: 'attackswon' },
+    { kw: 'crime',        field: 'criminaloffenses' },
   ]
 
   for (const g of guesses) {
