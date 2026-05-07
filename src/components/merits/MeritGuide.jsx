@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo } from 'react'
 import { fetchTornAwards, fetchPlayerAwards, debug } from '../../services/tornApi'
+import { NextClosest } from './NextClosest'
 
 const CATEGORY_RULES = [
   { label: 'Combat',    keys: ['attack','defeat','kill','mug','hospitalize','fight','war','chain','stab','shoot','punch','kick','bash','assassin','hitman','slaughter','massacre','blood','revenge','aggress','devastat','terror','retali','critical','headshot','carnage','victor','lethal'] },
   { label: 'Crimes',    keys: ['crime','steal','loot','hack','skimmer','card','bootleg','shoplift','pickpocket','hustle','scam','forgery','crack','graffiti','burgl','search for cash','counterfeit','disposal','hunting','vandal','thief','robbery','heist','bust','jail','federal'] },
   { label: 'Education', keys: ['course','education','study','graduate','degree','university','school','class','learn','certif','bachelor','master','doctor','phd','diploma','academic'] },
   { label: 'Travel',    keys: ['travel','overseas','abroad','souvenir','import','traffick','flight','airport','foreign','cayman','mexico','dubai','hawaii','canada','japan','china','argentina','switzerland','south africa','globetrotter','frequent flyer'] },
-  { label: 'Stats',     keys: ['strength','defense','speed','dexterity','gym','train','muscle','toned','athletic','built','iron','power','strong','fast','swift','quick','lightspeed','reinforced','shredded','jacked','pumped','fit','healthy'] },
-  { label: 'Social',    keys: ['marry','faction','friend','enemy','recruit','leader','co-leader','wedding','spouse','partner','couple','squad','crew','gang','clique','refer','invite','family'] },
+  { label: 'Stats',     keys: ['strength','defense','speed','dexterity','gym','train','muscle','toned','athletic','built','iron','power','strong','fast','swift','quick','lightspeed','reinforced','shredded','jacked','pumped'] },
+  { label: 'Social',    keys: ['marry','faction','friend','enemy','recruit','leader','wedding','spouse','partner','squad','crew','gang','clique','refer','invite','family'] },
   { label: 'Medical',   keys: ['hospital','revive','medic','blood','drug','xanax','cannabis','opium','lsd','pcp','ketamine','ecstasy','shroom','heroin','addict','overdose','rehab','nurse','surgery','inject','detox','pill','booster','sodaholic','energy drink'] },
   { label: 'Economy',   keys: ['bank','invest','money','cash','trade','stock','market','sell','buy','auction','bazaar','point','rich','wealth','networth','property','house','trailer','rent','landlord','business','company','employee','profit','earn','billion','million'] },
   { label: 'Casino',    keys: ['poker','dice','slot','roulette','casino','gamble','bet','wager','jackpot','wheel','blackjack','token','russian'] },
@@ -16,9 +17,7 @@ const CATEGORY_RULES = [
 
 function detectCategory(name = '', description = '') {
   const text = `${name} ${description}`.toLowerCase()
-  for (const rule of CATEGORY_RULES) {
-    if (rule.keys.some(k => text.includes(k))) return rule.label
-  }
+  for (const rule of CATEGORY_RULES) if (rule.keys.some(k => text.includes(k))) return rule.label
   return 'Other'
 }
 
@@ -30,29 +29,23 @@ function detectDifficulty(name = '', description = '') {
 }
 
 const TIPS = {
-  'Lovestruck':       'Defeat monkey_D and Left4Dead12 back-to-back.',
-  'Flatline':         'Attack a new player at full health and one-shot them.',
-  'Double Dragon':    "Assist a friend's attack without dealing the killing blow.",
-  'Guardian Angel':   'Defeat someone who is currently attacking another player.',
-  'Friendly Fire':    'Defeat a faction member.',
-  'Going Postal':     'Defeat a co-worker.',
-  'Phoenix':          'Lose to a friend, then beat them within 10 minutes.',
-  'Domino Effect':    'Kill someone displaying the Domino Effect honor.',
-  'Leonidas':         'Take Kickboxing course, finish a kill with a kick.',
-  'Vae Victis':       'Defeat someone with 5x your stats. Penguinbob is a known target.',
-  'Invictus':         'Successfully defend against someone with 2x your stats.',
-  'Boss Fight':       'Join an ongoing NPC loot fight and land at least one hit.',
-  'Clotted':          'Use Ipecac Syrup to hospitalize yourself.',
-  'Pious':            'Donate $100,000 to the Church.',
-  'Sacrificial':      'Donate $1 billion total to the Church.',
-  'Souvenir':         'Find your unique souvenir overseas. Check yata.yt.',
-  'Landlord':         'Buy a Trailer, rent it out for free.',
-  'Pocket Money':     'Make any investment in the Torn City Bank.',
-  'Wholesaler':       'Sell 1,000 points total on the Points Market.',
-  'Lavish':           'Dump any item worth over $1 million.',
-  "Who's Frank?":     'Take 50 Cannabis (~75 hours, ~$300k).',
-  'Energetic':        'Stack to 1,000 energy using 4 Xanax.',
-  'Historian':        'Open any Chronicle in the Newspaper, stay for 15 minutes.',
+  'Lovestruck':    'Defeat monkey_D and Left4Dead12 back-to-back.',
+  'Flatline':      'Attack a new player at full health and one-shot them.',
+  'Friendly Fire': 'Defeat a faction member.',
+  'Going Postal':  'Defeat a co-worker.',
+  'Vae Victis':    'Defeat someone with 5x your stats. Penguinbob is a known target.',
+  'Boss Fight':    'Join an ongoing NPC loot fight and land at least one hit.',
+  'Clotted':       'Use Ipecac Syrup to hospitalize yourself.',
+  'Pious':         'Donate $100,000 to the Church.',
+  'Sacrificial':   'Donate $1 billion total to the Church.',
+  'Souvenir':      'Find your unique souvenir overseas. Check yata.yt.',
+  'Landlord':      'Buy a Trailer, rent it out for free.',
+  'Pocket Money':  'Make any investment in the Torn City Bank.',
+  'Wholesaler':    'Sell 1,000 points total on the Points Market.',
+  'Lavish':        'Dump any item worth over $1 million.',
+  "Who's Frank?":  'Take 50 Cannabis (~75 hours, ~$300k).',
+  'Energetic':     'Stack to 1,000 energy using 4 Xanax.',
+  'Historian':     'Open any Chronicle in the Newspaper, stay for 15 minutes.',
 }
 
 function getTip(name) {
@@ -68,26 +61,7 @@ const DIFF_BADGE = {
   Hard:   'bg-bad-light text-bad',
 }
 
-const MERIT_UPGRADES = [
-  { key: 'strength',                label: 'Strength' },
-  { key: 'defense',                 label: 'Defense' },
-  { key: 'speed',                   label: 'Speed' },
-  { key: 'dexterity',               label: 'Dexterity' },
-  { key: 'life_points',             label: 'Life Points' },
-  { key: 'crime_experience',        label: 'Crime Progression' },
-  { key: 'education_speed',         label: 'Education Length' },
-  { key: 'nerve_bar',               label: 'Nerve Bar' },
-  { key: 'bank_interest',           label: 'Bank Interest' },
-  { key: 'critical_hit_rate',       label: 'Critical Hit Rate' },
-  { key: 'awareness',               label: 'Awareness' },
-  { key: 'hospitalization',         label: 'Hospitalization' },
-  { key: 'addiction_mitigation',    label: 'Addiction Mitigation' },
-  { key: 'employee_effectiveness',  label: 'Employee Effectiveness' },
-]
-
 const CATEGORIES = ['All', 'Combat', 'Crimes', 'Education', 'Travel', 'Stats', 'Social', 'Medical', 'Economy', 'Casino', 'Level', 'Other']
-
-// ─── Components ───────────────────────────────────────────────────────────────
 
 function Card({ children, className = '' }) {
   return <div className={`bg-white border border-ink-200 rounded-md ${className}`}>{children}</div>
@@ -106,15 +80,42 @@ function StatLine({ label, value, accent }) {
   )
 }
 
-function MeritAllocation({ merits }) {
-  const totalSpent = MERIT_UPGRADES.reduce((sum, u) => {
-    const lvl = merits[u.key] ?? 0
-    return sum + (lvl * (lvl + 1)) / 2
+const MERIT_LABELS = {
+  strength: 'Strength', defense: 'Defense', speed: 'Speed', dexterity: 'Dexterity',
+  life_points: 'Life Points', crime_experience: 'Crime Progression',
+  education_speed: 'Education Length', nerve_bar: 'Nerve Bar',
+  bank_interest: 'Bank Interest', critical_hit_rate: 'Critical Hit Rate',
+  awareness: 'Awareness', hospitalization: 'Hospitalization',
+  addiction_mitigation: 'Addiction Mitigation', employee_effectiveness: 'Employee Effectiveness',
+}
+
+function prettyLabel(key) {
+  return MERIT_LABELS[key] ?? key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
+function MeritAllocation({ merits, unspent }) {
+  const entries = Object.entries(merits ?? {})
+  const totalSpent = entries.reduce((sum, [, lvl]) => {
+    const n = Number(lvl) || 0
+    return sum + (n * (n + 1)) / 2
   }, 0)
+
+  if (entries.length === 0) {
+    return (
+      <Card>
+        <CardHeader>Merit Allocations</CardHeader>
+        <div className="p-6 text-sm text-ink-500 text-center">
+          No merit data returned. Make sure your key has access to user / merits.
+        </div>
+      </Card>
+    )
+  }
 
   return (
     <Card>
-      <CardHeader>Merit Allocations &middot; {totalSpent} merits spent</CardHeader>
+      <CardHeader>
+        Merit Allocations &middot; {totalSpent} spent{unspent != null && ` · ${unspent} unspent`}
+      </CardHeader>
       <table className="w-full text-sm">
         <thead className="bg-ink-50">
           <tr className="text-xs text-ink-500 uppercase tracking-wide">
@@ -124,12 +125,12 @@ function MeritAllocation({ merits }) {
           </tr>
         </thead>
         <tbody>
-          {MERIT_UPGRADES.map((u, i) => {
-            const lvl = merits[u.key] ?? 0
+          {entries.map(([key, raw]) => {
+            const lvl = Number(raw) || 0
             const cost = (lvl * (lvl + 1)) / 2
             return (
-              <tr key={u.key} className="border-t border-ink-100">
-                <td className="px-4 py-2 text-ink-900">{u.label}</td>
+              <tr key={key} className="border-t border-ink-100">
+                <td className="px-4 py-2 text-ink-900">{prettyLabel(key)}</td>
                 <td className="px-4 py-2">
                   <div className="flex items-center gap-2">
                     <div className="flex gap-0.5">
@@ -157,12 +158,8 @@ function AwardRow({ award, earned, expanded, onToggle }) {
 
   return (
     <>
-      <tr
-        onClick={tip ? onToggle : undefined}
-        className={`border-t border-ink-100 ${
-          earned ? 'bg-accent-light/30' : 'bg-white hover:bg-ink-50'
-        } ${tip ? 'cursor-pointer' : ''}`}
-      >
+      <tr onClick={tip ? onToggle : undefined}
+        className={`border-t border-ink-100 ${earned ? 'bg-accent-light/30' : 'bg-white hover:bg-ink-50'} ${tip ? 'cursor-pointer' : ''}`}>
         <td className="px-4 py-2 w-8">
           <div className={`w-4 h-4 rounded border ${earned ? 'bg-accent border-accent' : 'border-ink-300 bg-white'} flex items-center justify-center`}>
             {earned && (
@@ -177,9 +174,7 @@ function AwardRow({ award, earned, expanded, onToggle }) {
             {award.name ?? `#${award.id}`}
           </span>
         </td>
-        <td className="px-4 py-2 text-sm text-ink-500">
-          {award.description ?? '\u2014'}
-        </td>
+        <td className="px-4 py-2 text-sm text-ink-500">{award.description ?? '\u2014'}</td>
         <td className="px-4 py-2 w-24 text-xs text-ink-500">{cat}</td>
         <td className="px-4 py-2 w-20">
           {!earned && <span className={`text-[11px] px-2 py-0.5 rounded ${DIFF_BADGE[diff]}`}>{diff}</span>}
@@ -208,20 +203,18 @@ function DebugPanel({ open, onClose }) {
         </div>
         <div className="overflow-auto p-4 space-y-4">
           <div>
-            <p className="text-xs font-semibold text-ink-700 mb-1">user/?selections=honors,medals,merits,profile</p>
+            <p className="text-xs font-semibold text-ink-700 mb-1">user/?selections=...</p>
             <pre className="bg-ink-50 border border-ink-200 rounded p-3 text-[11px] font-mono overflow-auto max-h-64">{JSON.stringify(debug.user, null, 2)}</pre>
           </div>
           <div>
             <p className="text-xs font-semibold text-ink-700 mb-1">torn/?selections=honors,medals (truncated)</p>
-            <pre className="bg-ink-50 border border-ink-200 rounded p-3 text-[11px] font-mono overflow-auto max-h-64">{JSON.stringify(debug.torn, null, 2).slice(0, 4000)}...</pre>
+            <pre className="bg-ink-50 border border-ink-200 rounded p-3 text-[11px] font-mono overflow-auto max-h-64">{JSON.stringify(debug.torn, null, 2).slice(0, 3000)}...</pre>
           </div>
         </div>
       </div>
     </div>
   )
 }
-
-// ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function MeritGuide({ apiKey }) {
   const [loading, setLoading] = useState(true)
@@ -238,17 +231,10 @@ export function MeritGuide({ apiKey }) {
   useEffect(() => {
     let cancelled = false
     async function load() {
-      setLoading(true)
-      setError(null)
+      setLoading(true); setError(null)
       try {
-        const [torn, player] = await Promise.all([
-          fetchTornAwards(apiKey),
-          fetchPlayerAwards(apiKey),
-        ])
-        if (!cancelled) {
-          setTornAwards(torn)
-          setPlayerData(player)
-        }
+        const [torn, player] = await Promise.all([fetchTornAwards(apiKey), fetchPlayerAwards(apiKey)])
+        if (!cancelled) { setTornAwards(torn); setPlayerData(player) }
       } catch (e) {
         if (!cancelled) setError(e.message)
       } finally {
@@ -269,17 +255,20 @@ export function MeritGuide({ apiKey }) {
     }))
   }, [tab, tornAwards, playerData])
 
+  const allAwards = useMemo(() => {
+    const honors = Object.entries(tornAwards.honors).map(([id, d]) => ({ id: Number(id), ...d, earned: playerData?.earnedHonors?.has(Number(id)) ?? false }))
+    const medals = Object.entries(tornAwards.medals).map(([id, d]) => ({ id: Number(id), ...d, earned: playerData?.earnedMedals?.has(Number(id)) ?? false }))
+    return [...honors, ...medals]
+  }, [tornAwards, playerData])
+
   const filtered = useMemo(() => {
     let list = awards
-    if (filter === 'earned')  list = list.filter(a => a.earned)
-    if (filter === 'needed')  list = list.filter(a => !a.earned)
-    if (category !== 'All')   list = list.filter(a => detectCategory(a.name, a.description) === category)
+    if (filter === 'earned') list = list.filter(a => a.earned)
+    if (filter === 'needed') list = list.filter(a => !a.earned)
+    if (category !== 'All')  list = list.filter(a => detectCategory(a.name, a.description) === category)
     if (search.trim()) {
       const q = search.toLowerCase()
-      list = list.filter(a =>
-        (a.name ?? '').toLowerCase().includes(q) ||
-        (a.description ?? '').toLowerCase().includes(q)
-      )
+      list = list.filter(a => (a.name ?? '').toLowerCase().includes(q) || (a.description ?? '').toLowerCase().includes(q))
     }
     return list
   }, [awards, filter, category, search])
@@ -302,30 +291,24 @@ export function MeritGuide({ apiKey }) {
     return counts
   }, [awards])
 
-  if (loading) {
-    return <div className="max-w-[1400px] mx-auto px-6 py-16 text-center text-sm text-ink-500">Loading from Torn API...</div>
-  }
-
-  if (error) {
-    return (
-      <div className="max-w-md mx-auto mt-16">
-        <Card>
-          <div className="px-4 py-2 bg-bad text-white text-sm font-semibold">API Error</div>
-          <div className="p-4 text-sm">
-            <p className="text-ink-900 mb-2">{error}</p>
-            <p className="text-ink-500 text-xs">Your key needs access to user and torn sections.</p>
-          </div>
-        </Card>
-      </div>
-    )
-  }
+  if (loading) return <div className="max-w-[1400px] mx-auto px-6 py-16 text-center text-sm text-ink-500">Loading from Torn API...</div>
+  if (error) return (
+    <div className="max-w-md mx-auto mt-16">
+      <Card>
+        <div className="px-4 py-2 bg-bad text-white text-sm font-semibold">API Error</div>
+        <div className="p-4 text-sm">
+          <p className="text-ink-900 mb-2">{error}</p>
+          <p className="text-ink-500 text-xs">Your key needs access to user and torn sections.</p>
+        </div>
+      </Card>
+    </div>
+  )
 
   const profile = playerData?.profile ?? {}
 
   return (
     <div className="max-w-[1400px] mx-auto px-6 py-6">
       <div className="flex gap-6">
-        {/* ─── Sidebar ────────────────────────────── */}
         <aside className="w-64 flex-shrink-0 space-y-4">
           <Card>
             <CardHeader>Player</CardHeader>
@@ -341,19 +324,14 @@ export function MeritGuide({ apiKey }) {
             <CardHeader>Progress</CardHeader>
             <StatLine label="Honors" value={`${honorEarned} / ${honorList.length}`} />
             <StatLine label="Medals" value={`${medalEarned} / ${medalList.length}`} />
-            <StatLine label="Merits earned" value={honorEarned + medalEarned} accent="text-accent-dark" />
+            <StatLine label="Earned" value={honorEarned + medalEarned} accent="text-accent-dark" />
           </Card>
 
           <Card>
             <CardHeader>View</CardHeader>
-            {[['honors', 'Honors', honorList.length], ['medals', 'Medals', medalList.length], ['merits', 'Allocations', null]].map(([key, label, count]) => (
-              <button
-                key={key}
-                onClick={() => setTab(key)}
-                className={`w-full flex items-center justify-between px-4 py-2 text-sm border-b border-ink-100 last:border-0 transition-colors ${
-                  tab === key ? 'bg-accent-light text-accent-dark font-medium' : 'text-ink-700 hover:bg-ink-50'
-                }`}
-              >
+            {[['honors','Honors',honorList.length],['medals','Medals',medalList.length],['merits','Allocations',null]].map(([key,label,count]) => (
+              <button key={key} onClick={() => setTab(key)}
+                className={`w-full flex items-center justify-between px-4 py-2 text-sm border-b border-ink-100 last:border-0 transition-colors ${tab === key ? 'bg-accent-light text-accent-dark font-medium' : 'text-ink-700 hover:bg-ink-50'}`}>
                 <span>{label}</span>
                 {count != null && <span className="text-xs text-ink-400">{count}</span>}
               </button>
@@ -364,13 +342,8 @@ export function MeritGuide({ apiKey }) {
             <Card>
               <CardHeader>Categories</CardHeader>
               {CATEGORIES.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setCategory(cat)}
-                  className={`w-full flex items-center justify-between px-4 py-1.5 text-sm border-b border-ink-100 last:border-0 transition-colors ${
-                    category === cat ? 'bg-accent-light text-accent-dark font-medium' : 'text-ink-700 hover:bg-ink-50'
-                  }`}
-                >
+                <button key={cat} onClick={() => setCategory(cat)}
+                  className={`w-full flex items-center justify-between px-4 py-1.5 text-sm border-b border-ink-100 last:border-0 transition-colors ${category === cat ? 'bg-accent-light text-accent-dark font-medium' : 'text-ink-700 hover:bg-ink-50'}`}>
                   <span>{cat}</span>
                   <span className="text-xs text-ink-400">{categoryCounts[cat] ?? 0}</span>
                 </button>
@@ -378,81 +351,67 @@ export function MeritGuide({ apiKey }) {
             </Card>
           )}
 
-          <button
-            onClick={() => setShowDebug(true)}
-            className="w-full text-xs text-ink-400 hover:text-ink-700 py-1"
-          >
+          <button onClick={() => setShowDebug(true)} className="w-full text-xs text-ink-400 hover:text-ink-700 py-1">
             Debug: show raw API
           </button>
         </aside>
 
-        {/* ─── Main ───────────────────────────────── */}
         <main className="flex-1 min-w-0">
           {tab === 'merits' ? (
-            <MeritAllocation merits={playerData?.merits ?? {}} />
+            <MeritAllocation merits={playerData?.merits} unspent={profile.merits} />
           ) : (
-            <Card>
-              <CardHeader>
-                {tab === 'medals' ? 'Medals' : 'Honors'}
-                {category !== 'All' && ` / ${category}`}
-                {' '}&middot; {earned}/{total} ({pct}%)
-              </CardHeader>
-
-              <div className="px-4 py-3 border-b border-ink-200 bg-ink-50 flex items-center gap-3 flex-wrap">
-                <div className="flex bg-white border border-ink-200 rounded overflow-hidden">
-                  {[['needed','Needed'], ['earned','Earned'], ['all','All']].map(([k, label]) => (
-                    <button
-                      key={k}
-                      onClick={() => setFilter(k)}
-                      className={`px-3 py-1 text-xs border-r border-ink-200 last:border-0 ${
-                        filter === k ? 'bg-accent text-white font-medium' : 'text-ink-700 hover:bg-ink-50'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="bg-white border border-ink-200 rounded px-3 py-1 text-xs text-ink-900 focus:outline-none focus:border-accent flex-1 max-w-xs"
-                />
-
-                <span className="text-xs text-ink-400 ml-auto">{filtered.length} showing</span>
-              </div>
-
-              {filtered.length === 0 ? (
-                <div className="p-12 text-center text-sm text-ink-400">
-                  {filter === 'needed' ? 'All complete in this category.' : 'No awards match.'}
-                </div>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead className="bg-ink-50">
-                    <tr className="text-xs text-ink-500 uppercase tracking-wide">
-                      <th className="px-4 py-2 text-left font-medium w-8"></th>
-                      <th className="px-4 py-2 text-left font-medium">Name</th>
-                      <th className="px-4 py-2 text-left font-medium">Description</th>
-                      <th className="px-4 py-2 text-left font-medium">Category</th>
-                      <th className="px-4 py-2 text-left font-medium">Difficulty</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map(award => (
-                      <AwardRow
-                        key={`${tab}-${award.id}`}
-                        award={award}
-                        earned={award.earned}
-                        expanded={expanded === `${tab}-${award.id}`}
-                        onToggle={() => setExpanded(expanded === `${tab}-${award.id}` ? null : `${tab}-${award.id}`)}
-                      />
+            <>
+              <NextClosest
+                awards={allAwards}
+                personalstats={playerData?.personalstats ?? {}}
+                battlestats={playerData?.battlestats ?? {}}
+                topN={3}
+              />
+              <Card>
+                <CardHeader>
+                  {tab === 'medals' ? 'Medals' : 'Honors'}
+                  {category !== 'All' && ` / ${category}`}
+                  {' '}&middot; {earned}/{total} ({pct}%)
+                </CardHeader>
+                <div className="px-4 py-3 border-b border-ink-200 bg-ink-50 flex items-center gap-3 flex-wrap">
+                  <div className="flex bg-white border border-ink-200 rounded overflow-hidden">
+                    {[['needed','Needed'],['earned','Earned'],['all','All']].map(([k,label]) => (
+                      <button key={k} onClick={() => setFilter(k)}
+                        className={`px-3 py-1 text-xs border-r border-ink-200 last:border-0 ${filter === k ? 'bg-accent text-white font-medium' : 'text-ink-700 hover:bg-ink-50'}`}>
+                        {label}
+                      </button>
                     ))}
-                  </tbody>
-                </table>
-              )}
-            </Card>
+                  </div>
+                  <input type="text" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)}
+                    className="bg-white border border-ink-200 rounded px-3 py-1 text-xs text-ink-900 focus:outline-none focus:border-accent flex-1 max-w-xs" />
+                  <span className="text-xs text-ink-400 ml-auto">{filtered.length} showing</span>
+                </div>
+                {filtered.length === 0 ? (
+                  <div className="p-12 text-center text-sm text-ink-400">
+                    {filter === 'needed' ? 'All complete in this category.' : 'No awards match.'}
+                  </div>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead className="bg-ink-50">
+                      <tr className="text-xs text-ink-500 uppercase tracking-wide">
+                        <th className="px-4 py-2 text-left font-medium w-8"></th>
+                        <th className="px-4 py-2 text-left font-medium">Name</th>
+                        <th className="px-4 py-2 text-left font-medium">Description</th>
+                        <th className="px-4 py-2 text-left font-medium">Category</th>
+                        <th className="px-4 py-2 text-left font-medium">Difficulty</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map(a => (
+                        <AwardRow key={`${tab}-${a.id}`} award={a} earned={a.earned}
+                          expanded={expanded === `${tab}-${a.id}`}
+                          onToggle={() => setExpanded(expanded === `${tab}-${a.id}` ? null : `${tab}-${a.id}`)} />
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </Card>
+            </>
           )}
         </main>
       </div>
