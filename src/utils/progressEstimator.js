@@ -1,17 +1,56 @@
-// Maps awards to player progress based on personalstats and battlestats.
-// Order matters: more specific patterns must come BEFORE broader ones.
+// Maps awards to player progress based on Torn personalstats / battlestats.
+// Field names verified against TornAPI docs.
+
+// Crime 2.0 categories → personalstats field names
+const CRIME_FIELDS = [
+  // [keyword in description, personalstats field]
+  ['theft',                'theft'],
+  ['bootlegging',          'illegalproduction'],
+  ['illegal production',   'illegalproduction'],
+  ['drug dealing',         'illicitservices'],
+  ['illicit',              'illicitservices'],
+  ['arson',                'fraud'],
+  ['fraud',                'fraud'],
+  ['counterfeit',          'counterfeiting'],
+  ['forgery',              'counterfeiting'],
+  ['cybercrime',           'cybercrime'],
+  ['cyber',                'cybercrime'],
+  ['hacking',              'cybercrime'],
+  ['extortion',            'extortion'],
+  ['hustling',             'extortion'],
+  ['vandalism',            'vandalism'],
+  ['graffiti',             'vandalism'],
+  ['manual labor',         'manuallabor'],
+  ['search for cash',      'manuallabor'],
+  ['other crimes',         'manuallabor'],   // best guess for "other"
+]
+
+function detectCrimeField(text) {
+  const lower = text.toLowerCase()
+  for (const [kw, field] of CRIME_FIELDS) {
+    if (lower.includes(kw)) return field
+  }
+  return null
+}
+
+function extractTarget(description = '') {
+  const m = description.match(/([\d,]+)/)
+  if (!m) return null
+  const n = Number(m[1].replace(/,/g, ''))
+  return n >= 2 ? n : null
+}
+
 const KNOWN = [
-  // ─── Specific named honors (exact-name matches first) ──────────
+  // ─── Specific named honors ─────────────────────────────────────
   { pattern: /^sidekick$/i,             field: 'attacksassisted',      target: 250 },
   { pattern: /^happy slapper$/i,        field: 'attackswon',           target: 250 },
   { pattern: /^fall camo$/i,            field: 'defendswon',           target: 250 },
-  { pattern: /^big shot$/i,             field: 'attackshits',          target: 1000 },
+  { pattern: /^big shot$/i,             field: 'attackhits',           target: 1000 },
   { pattern: /^marksman$/i,             field: 'attackcriticalhits',   target: 100 },
   { pattern: /^one in a million$/i,     field: 'attackcriticalhits',   target: 1000 },
-  { pattern: /^hospitalizer$/i,         field: 'hospitalized',         target: 100 },
   { pattern: /^stalemate$/i,            field: 'attacksstealthed',     target: 100 },
 
-  // Combat / Attacks (descriptive name patterns)
+  // Combat
   { pattern: /tooth and nail/i,         field: 'attackswon',           target: 2500 },
   { pattern: /coup de grace/i,          field: 'attackswon',           target: 5000 },
   { pattern: /killing spree/i,          field: 'attackswon',           target: 10000 },
@@ -19,23 +58,18 @@ const KNOWN = [
   { pattern: /lead salad/i,             field: 'roundsfired',          target: 100000 },
   { pattern: /peppered/i,               field: 'roundsfired',          target: 1000000 },
 
-  // ─── Phrase-priority rules (match BEFORE generic attack) ───────
+  // Phrase-priority (before generic attack)
   { pattern: /assist/i,                 field: 'attacksassisted',      target: null },
   { pattern: /defend/i,                 field: 'defendswon',           target: null },
   { pattern: /critical/i,               field: 'attackcriticalhits',   target: null },
 
-  // Crimes
-  { pattern: /perp.*1,?000/i,           field: 'criminaloffenses',     target: 1000 },
-  { pattern: /perp.*5,?000/i,           field: 'criminaloffenses',     target: 5000 },
-  { pattern: /career criminal/i,        field: 'criminaloffenses',     target: 10000 },
-
-  // Drugs / Medical
+  // Drugs
   { pattern: /who'?s frank/i,           field: 'cantaken',             target: 50 },
   { pattern: /crackpot/i,               field: 'xantaken',             target: 250 },
   { pattern: /pill popper/i,            field: 'xantaken',             target: 1000 },
   { pattern: /sodaholic/i,              field: 'energydrinkused',      target: 500 },
 
-  // Money / Economy
+  // Money
   { pattern: /pious/i,                  field: 'churchspent',          target: 100000 },
   { pattern: /sacrificial/i,            field: 'churchspent',          target: 1000000000 },
 
@@ -60,17 +94,11 @@ const KNOWN = [
   { pattern: /you'?ve got some nerve/i, field: 'refills',              target: 250 },
 ]
 
-function extractTarget(description = '') {
-  const m = description.match(/([\d,]+)/)
-  if (!m) return null
-  const n = Number(m[1].replace(/,/g, ''))
-  return n >= 2 ? n : null
-}
-
 export function estimateProgress(award, personalstats = {}, battlestats = {}) {
   const text = `${award.name ?? ''} ${award.description ?? ''}`
   const desc = (award.description ?? '').toLowerCase()
 
+  // Step 1: explicit pattern rules
   for (const rule of KNOWN) {
     if (rule.pattern.test(text)) {
       const source = rule.source === 'battle' ? battlestats : personalstats
@@ -83,7 +111,18 @@ export function estimateProgress(award, personalstats = {}, battlestats = {}) {
     }
   }
 
-  // Heuristic fallback - careful keyword priority
+  // Step 2: crime-type detection (priority for "Achieve N <type> crimes" awards)
+  if (desc.includes('crime')) {
+    const field = detectCrimeField(text)
+    const target = extractTarget(award.description)
+    if (field && target && personalstats[field] != null) {
+      const current = Number(personalstats[field])
+      const percent = Math.min(100, Math.round((current / target) * 100))
+      return { current, target, percent }
+    }
+  }
+
+  // Step 3: heuristic fallback for non-crime awards
   const target = extractTarget(award.description)
   if (!target) return null
 
@@ -105,7 +144,13 @@ export function estimateProgress(award, personalstats = {}, battlestats = {}) {
     { kw: 'revive',       field: 'revives' },
     { kw: 'bust',         field: 'jailsbusted' },
     { kw: 'attack',       field: 'attackswon' },
-    { kw: 'crime',        field: 'criminaloffenses' },
+    { kw: 'auction',      field: 'auctionswon' },
+    { kw: 'overdose',     field: 'overdosed' },
+    { kw: 'hospital',     field: 'hospital' },
+    { kw: 'race',         field: 'raceswon' },
+    { kw: 'mission',      field: 'missioncompleted' },
+    { kw: 'point',        field: 'pointsbought' },
+    { kw: 'book',         field: 'booksread' },
   ]
 
   for (const g of guesses) {

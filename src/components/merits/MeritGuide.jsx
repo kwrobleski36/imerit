@@ -161,7 +161,7 @@ function AwardRow({ award, earned, expanded, onToggle, progress, showProgress })
     <>
       <tr onClick={tip ? onToggle : undefined}
         className={`border-t border-ink-100 ${earned ? 'bg-accent-light/30' : 'bg-white hover:bg-ink-50'} ${tip ? 'cursor-pointer' : ''}`}>
-        <td className="px-4 py-2 w-10 font-mono text-sm text-center">
+        <td className="pl-4 pr-2 py-2 w-12 font-mono text-sm whitespace-nowrap">
           <span className={earned ? 'text-accent-dark font-bold' : 'text-ink-300'}>
             {earned ? '[X]' : '[ ]'}
           </span>
@@ -417,7 +417,7 @@ export function MeritGuide({ apiKey }) {
                   <table className="w-full text-sm">
                     <thead className="bg-ink-50">
                       <tr className="font-mono text-[11px] text-ink-500 uppercase tracking-wide">
-                        <th className="px-4 py-2 text-left font-bold w-10"></th>
+                        <th className="pl-4 pr-2 py-2 text-left font-bold w-12"></th>
                         <th className="px-4 py-2 text-left font-bold">Name</th>
                         <th className="px-4 py-2 text-left font-bold">Description</th>
                         <th className="px-4 py-2 text-left font-bold">Category</th>
