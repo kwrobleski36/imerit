@@ -1,24 +1,9 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>iMerit</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet" />
-    <script type="module" crossorigin src="/imerit/assets/index-B2SfSMRA.js"></script>
-    <link rel="stylesheet" crossorigin href="/imerit/assets/index-EeKH3BJP.css">
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
-</html><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Comp Hub</title>
+  <title>Competition Hub</title>
   <link rel="stylesheet" href="https://unpkg.com/98.css">
   
   <style>
@@ -48,24 +33,53 @@
     button:active {
       box-shadow: inset -1px -1px #4d4d4d, inset 1px 1px #0a0a0a, inset -2px -2px #3d3d3d, inset 2px 2px #1e1e1e;
     }
-    input[type="password"] {
+    input[type="password"], input[type="date"] {
       background: #1e1e1e;
       color: #dfdfdf;
       border: none;
       box-shadow: inset -1px -1px #4d4d4d, inset 1px 1px #0a0a0a, inset -2px -2px #3d3d3d, inset 2px 2px #1e1e1e;
       padding: 4px;
     }
+    input[type="date"]::-webkit-calendar-picker-indicator {
+      filter: invert(1);
+      cursor: pointer;
+    }
     #hub-section {
       display: none;
+    }
+    .sunken-panel {
+      background: #1e1e1e;
+      box-shadow: inset -1px -1px #4d4d4d, inset 1px 1px #0a0a0a, inset -2px -2px #3d3d3d, inset 2px 2px #1e1e1e;
+      padding: 10px;
+      margin-top: 15px;
+      height: 250px;
+      overflow-y: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      text-align: left;
+      padding: 4px 8px;
+      border-bottom: 1px solid #3d3d3d;
+    }
+    th {
+      background-color: #2b2b2b;
+    }
+    .controls-row {
+      display: flex;
+      gap: 15px;
+      align-items: flex-end;
+      margin-bottom: 10px;
     }
   </style>
 </head>
 <body>
 
-  <!-- Login Window -->
   <div class="window" id="login-section" style="width: 300px;">
     <div class="title-bar">
-      <div class="title-bar-text">Comp Hub - System Login</div>
+      <div class="title-bar-text">Competition Hub - System Login</div>
     </div>
     <div class="window-body">
       <div class="field-row-stacked">
@@ -79,22 +93,50 @@
     </div>
   </div>
 
-  <!-- Main Hub Window -->
   <div class="window" id="hub-section" style="width: 600px;">
     <div class="title-bar">
-      <div class="title-bar-text">Comp Hub - Dashboard</div>
+      <div class="title-bar-text">Competition Hub - Dashboard</div>
     </div>
     <div class="window-body">
-      <p>Authentication accepted. Welcome to Comp Hub.</p>
-      <hr>
-      <div id="module-container">
-        <p>Awaiting data from Torn Competitions...</p>
+      
+      <div class="controls-row">
+        <div class="field-row-stacked">
+          <label for="start-date">Start Date:</label>
+          <input id="start-date" type="date">
+        </div>
+        <div class="field-row-stacked">
+          <label for="end-date">End Date:</label>
+          <input id="end-date" type="date">
+        </div>
+        <button id="fetch-btn">Pull Standings</button>
       </div>
+
+      <hr>
+
+      <div id="module-container">
+        <p style="margin-bottom: 5px; font-weight: bold;">Blood Bag Fills</p>
+        <div class="sunken-panel">
+          <table>
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Member</th>
+                <th>Fills</th>
+              </tr>
+            </thead>
+            <tbody id="standings-body">
+              <tr><td colspan="3" style="text-align: center; color: #888;">Select dates and pull data.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
   </div>
 
   <script>
     const WORKER_URL = 'https://comp-hub-backend.kwrobleski.workers.dev'; 
+    let sessionPassword = '';
 
     document.getElementById('login-btn').addEventListener('click', async () => {
       const password = document.getElementById('password').value;
@@ -104,18 +146,74 @@
         const response = await fetch(WORKER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password })
+          body: JSON.stringify({ action: 'login', password })
         });
 
         if (response.ok) {
+          sessionPassword = password;
           document.getElementById('login-section').style.display = 'none';
           document.getElementById('hub-section').style.display = 'block';
         } else {
           errorMsg.style.display = 'block';
         }
       } catch (e) {
-        errorMsg.innerText = "Network Error. Check Worker URL.";
+        errorMsg.innerText = "Network Error.";
         errorMsg.style.display = 'block';
+      }
+    });
+
+    document.getElementById('fetch-btn').addEventListener('click', async () => {
+      const startDate = document.getElementById('start-date').value;
+      const endDate = document.getElementById('end-date').value;
+      const standingsBody = document.getElementById('standings-body');
+
+      if (!startDate || !endDate) {
+        alert("Select Start and End dates.");
+        return;
+      }
+
+      const startUnix = Math.floor(new Date(startDate).getTime() / 1000);
+      const endUnix = Math.floor(new Date(endDate).getTime() / 1000);
+
+      standingsBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #888;">Fetching data...</td></tr>';
+
+      try {
+        const response = await fetch(WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            action: 'fetch_standings', 
+            password: sessionPassword, 
+            startUnix, 
+            endUnix 
+          })
+        });
+        
+        const result = await response.json();
+
+        if (result.success) {
+          standingsBody.innerHTML = '';
+          
+          result.data.forEach((member, index) => {
+            if (member.fills > 0) {
+              standingsBody.innerHTML += `
+                <tr>
+                  <td>${index + 1}</td>
+                  <td><a href="https://www.torn.com/profiles.php?XID=${member.id}" target="_blank" style="color: #dfdfdf; text-decoration: none;">${member.name}</a></td>
+                  <td>${member.fills}</td>
+                </tr>
+              `;
+            }
+          });
+
+          if (standingsBody.innerHTML === '') {
+             standingsBody.innerHTML = '<tr><td colspan="3" style="text-align: center;">No activity found.</td></tr>';
+          }
+        } else {
+          standingsBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #ff5555;">Error: ${result.error}</td></tr>`;
+        }
+      } catch (e) {
+        standingsBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #ff5555;">Network error.</td></tr>';
       }
     });
   </script>
