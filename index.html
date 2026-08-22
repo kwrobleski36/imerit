@@ -13,4 +13,111 @@
   <body>
     <div id="root"></div>
   </body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comp Hub</title>
+  <link rel="stylesheet" href="https://unpkg.com/98.css">
+  
+  <style>
+    body {
+      background-color: #121212;
+      color: #dfdfdf;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
+    .window {
+      background: #2b2b2b;
+      box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #4d4d4d, inset -2px -2px #1e1e1e, inset 2px 2px #3d3d3d;
+    }
+    .title-bar {
+      background: linear-gradient(90deg, #000080, #1084d0);
+    }
+    button {
+      background: #2b2b2b;
+      color: #dfdfdf;
+      box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #4d4d4d, inset -2px -2px #1e1e1e, inset 2px 2px #3d3d3d;
+      cursor: pointer;
+    }
+    button:active {
+      box-shadow: inset -1px -1px #4d4d4d, inset 1px 1px #0a0a0a, inset -2px -2px #3d3d3d, inset 2px 2px #1e1e1e;
+    }
+    input[type="password"] {
+      background: #1e1e1e;
+      color: #dfdfdf;
+      border: none;
+      box-shadow: inset -1px -1px #4d4d4d, inset 1px 1px #0a0a0a, inset -2px -2px #3d3d3d, inset 2px 2px #1e1e1e;
+      padding: 4px;
+    }
+    #hub-section {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Login Window -->
+  <div class="window" id="login-section" style="width: 300px;">
+    <div class="title-bar">
+      <div class="title-bar-text">Comp Hub - System Login</div>
+    </div>
+    <div class="window-body">
+      <div class="field-row-stacked">
+        <label for="password">Authentication Key:</label>
+        <input id="password" type="password" style="width: 100%; margin-top: 5px;">
+      </div>
+      <div style="text-align: right; margin-top: 15px;">
+        <button id="login-btn">Enter</button>
+      </div>
+      <p id="error-msg" style="color: #ff5555; display: none; margin-top: 10px; text-align: center;">Access Denied.</p>
+    </div>
+  </div>
+
+  <!-- Main Hub Window -->
+  <div class="window" id="hub-section" style="width: 600px;">
+    <div class="title-bar">
+      <div class="title-bar-text">Comp Hub - Dashboard</div>
+    </div>
+    <div class="window-body">
+      <p>Authentication accepted. Welcome to Comp Hub.</p>
+      <hr>
+      <div id="module-container">
+        <p>Awaiting data from Torn Competitions...</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const WORKER_URL = 'https://comp-hub-backend.kwrobleski.workers.dev'; 
+
+    document.getElementById('login-btn').addEventListener('click', async () => {
+      const password = document.getElementById('password').value;
+      const errorMsg = document.getElementById('error-msg');
+      
+      try {
+        const response = await fetch(WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+
+        if (response.ok) {
+          document.getElementById('login-section').style.display = 'none';
+          document.getElementById('hub-section').style.display = 'block';
+        } else {
+          errorMsg.style.display = 'block';
+        }
+      } catch (e) {
+        errorMsg.innerText = "Network Error. Check Worker URL.";
+        errorMsg.style.display = 'block';
+      }
+    });
+  </script>
+</body>
 </html>
