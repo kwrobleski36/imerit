@@ -33,7 +33,7 @@
     button:active {
       box-shadow: inset -1px -1px #4d4d4d, inset 1px 1px #0a0a0a, inset -2px -2px #3d3d3d, inset 2px 2px #1e1e1e;
     }
-    input[type="password"], input[type="date"] {
+    input[type="password"], input[type="date"], select {
       background: #1e1e1e;
       color: #dfdfdf;
       border: none;
@@ -107,13 +107,20 @@
     </div>
   </div>
 
-  <div class="window" id="hub-section" style="width: 600px;">
+  <div class="window" id="hub-section" style="width: 650px;">
     <div class="title-bar">
       <div class="title-bar-text">Competition Hub - Dashboard</div>
     </div>
     <div class="window-body">
       
       <div class="controls-row">
+        <div class="field-row-stacked">
+          <label for="comp-type">Metric:</label>
+          <select id="comp-type">
+            <option value="bloodwithdrawn">Blood Bag Fills</option>
+            <option value="xantaken">Xanax Taken</option>
+          </select>
+        </div>
         <div class="field-row-stacked">
           <label for="start-date">Start Date (TCT):</label>
           <input id="start-date" type="date">
@@ -130,14 +137,14 @@
       <hr>
 
       <div id="module-container">
-        <p style="margin-bottom: 5px; font-weight: bold;">Blood Bag Fills</p>
+        <p id="module-title" style="margin-bottom: 5px; font-weight: bold;">Blood Bag Fills</p>
         <div class="sunken-panel">
           <table>
             <thead>
               <tr>
                 <th>Rank</th>
                 <th>Member</th>
-                <th>Fills</th>
+                <th id="score-header">Fills</th>
               </tr>
             </thead>
             <tbody id="standings-body">
@@ -182,8 +189,15 @@
     document.getElementById('fetch-btn').addEventListener('click', async () => {
       const startDate = document.getElementById('start-date').value;
       const endDate = document.getElementById('end-date').value;
+      const compSelect = document.getElementById('comp-type');
+      const statName = compSelect.value;
+      const compName = compSelect.options[compSelect.selectedIndex].text;
+      
       const standingsBody = document.getElementById('standings-body');
       const discordBtn = document.getElementById('discord-btn');
+      
+      document.getElementById('module-title').innerText = compName;
+      document.getElementById('score-header').innerText = statName === 'bloodwithdrawn' ? 'Fills' : 'Taken';
 
       if (!startDate || !endDate) {
         alert("Select Start and End dates.");
@@ -235,19 +249,26 @@
           const statRes = await fetch(WORKER_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'get_user_stats', password: sessionPassword, startUnix: adjustedStartUnix, endUnix, userId: id })
+            body: JSON.stringify({ 
+              action: 'get_user_stats', 
+              password: sessionPassword, 
+              startUnix: adjustedStartUnix, 
+              endUnix, 
+              userId: id,
+              statName 
+            })
           });
           const statResult = await statRes.json();
           
           if (statResult.success) {
-            standings.push({ id, name: member.name, fills: statResult.fills });
+            standings.push({ id, name: member.name, score: statResult.score });
           }
 
           await new Promise(r => setTimeout(r, 200));
         }
 
-        standings.sort((a, b) => b.fills - a.fills);
-        currentStandings = standings.filter(m => m.fills > 0);
+        standings.sort((a, b) => b.score - a.score);
+        currentStandings = standings.filter(m => m.score > 0);
         standingsBody.innerHTML = '';
         
         currentStandings.forEach((member, index) => {
@@ -255,7 +276,7 @@
             <tr>
               <td>${index + 1}</td>
               <td><a href="https://www.torn.com/profiles.php?XID=${member.id}" target="_blank">${member.name}</a></td>
-              <td>${member.fills}</td>
+              <td>${member.score}</td>
             </tr>
           `;
         });
@@ -273,6 +294,8 @@
     document.getElementById('discord-btn').addEventListener('click', async () => {
       const startDate = document.getElementById('start-date').value;
       const endDate = document.getElementById('end-date').value;
+      const compSelect = document.getElementById('comp-type');
+      const compName = compSelect.options[compSelect.selectedIndex].text;
       const discordBtn = document.getElementById('discord-btn');
       
       const originalText = discordBtn.innerText;
@@ -287,7 +310,8 @@
             action: 'post_discord', 
             password: sessionPassword, 
             standings: currentStandings,
-            dateString: `${startDate} to ${endDate}`
+            dateString: `${startDate} to ${endDate}`,
+            compName: compName
           })
         });
 
