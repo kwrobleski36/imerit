@@ -67,6 +67,17 @@
     th {
       background-color: #2b2b2b;
     }
+    tbody {
+      background-color: #ffffff;
+      color: #000000;
+    }
+    tbody td a {
+      color: #000000 !important;
+      text-decoration: none;
+    }
+    tbody td a:hover {
+      text-decoration: underline;
+    }
     .controls-row {
       display: flex;
       gap: 15px;
@@ -101,11 +112,11 @@
       
       <div class="controls-row">
         <div class="field-row-stacked">
-          <label for="start-date">Start Date:</label>
+          <label for="start-date">Start Date (TCT):</label>
           <input id="start-date" type="date">
         </div>
         <div class="field-row-stacked">
-          <label for="end-date">End Date:</label>
+          <label for="end-date">End Date (TCT):</label>
           <input id="end-date" type="date">
         </div>
         <button id="fetch-btn">Pull Standings</button>
@@ -172,8 +183,8 @@
         return;
       }
 
-      const startUnix = Math.floor(new Date(startDate).getTime() / 1000);
-      const endUnix = Math.floor(new Date(endDate).getTime() / 1000);
+      const startUnix = Math.floor(new Date(`${startDate}T00:00:00Z`).getTime() / 1000);
+      const endUnix = Math.floor(new Date(`${endDate}T23:59:59Z`).getTime() / 1000);
 
       standingsBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #888;">Fetching member list...</td></tr>';
 
@@ -220,7 +231,7 @@
             standingsBody.innerHTML += `
               <tr>
                 <td>${index + 1}</td>
-                <td><a href="https://www.torn.com/profiles.php?XID=${member.id}" target="_blank" style="color: #dfdfdf; text-decoration: none;">${member.name}</a></td>
+                <td><a href="https://www.torn.com/profiles.php?XID=${member.id}" target="_blank">${member.name}</a></td>
                 <td>${member.fills}</td>
               </tr>
             `;
