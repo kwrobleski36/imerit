@@ -84,6 +84,9 @@
       align-items: flex-end;
       margin-bottom: 10px;
     }
+    .flex-space {
+      flex-grow: 1;
+    }
   </style>
 </head>
 <body>
@@ -120,6 +123,8 @@
           <input id="end-date" type="date">
         </div>
         <button id="fetch-btn">Pull Standings</button>
+        <div class="flex-space"></div>
+        <button id="discord-btn" style="display: none;">Post to Discord</button>
       </div>
 
       <hr>
@@ -148,6 +153,7 @@
   <script>
     const WORKER_URL = 'https://comp-hub-backend.kwrobleski.workers.dev'; 
     let sessionPassword = '';
+    let currentStandings = [];
 
     document.getElementById('login-btn').addEventListener('click', async () => {
       const password = document.getElementById('password').value;
@@ -177,11 +183,15 @@
       const startDate = document.getElementById('start-date').value;
       const endDate = document.getElementById('end-date').value;
       const standingsBody = document.getElementById('standings-body');
+      const discordBtn = document.getElementById('discord-btn');
 
       if (!startDate || !endDate) {
         alert("Select Start and End dates.");
         return;
       }
+
+      discordBtn.style.display = 'none';
+      currentStandings = [];
 
       const startUnix = Math.floor(new Date(`${startDate}T00:00:00Z`).getTime() / 1000);
       const endUnix = Math.floor(new Date(`${endDate}T23:59:59Z`).getTime() / 1000);
@@ -224,25 +234,63 @@
         }
 
         standings.sort((a, b) => b.fills - a.fills);
+        currentStandings = standings.filter(m => m.fills > 0);
         standingsBody.innerHTML = '';
         
-        standings.forEach((member, index) => {
-          if (member.fills > 0) {
-            standingsBody.innerHTML += `
-              <tr>
-                <td>${index + 1}</td>
-                <td><a href="https://www.torn.com/profiles.php?XID=${member.id}" target="_blank">${member.name}</a></td>
-                <td>${member.fills}</td>
-              </tr>
-            `;
-          }
+        currentStandings.forEach((member, index) => {
+          standingsBody.innerHTML += `
+            <tr>
+              <td>${index + 1}</td>
+              <td><a href="https://www.torn.com/profiles.php?XID=${member.id}" target="_blank">${member.name}</a></td>
+              <td>${member.fills}</td>
+            </tr>
+          `;
         });
 
         if (standingsBody.innerHTML === '') {
            standingsBody.innerHTML = '<tr><td colspan="3" style="text-align: center;">No activity found.</td></tr>';
+        } else {
+           discordBtn.style.display = 'block';
         }
       } catch (e) {
         standingsBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #ff5555;">Network error.</td></tr>';
+      }
+    });
+
+    document.getElementById('discord-btn').addEventListener('click', async () => {
+      const startDate = document.getElementById('start-date').value;
+      const endDate = document.getElementById('end-date').value;
+      const discordBtn = document.getElementById('discord-btn');
+      
+      const originalText = discordBtn.innerText;
+      discordBtn.innerText = 'Posting...';
+      discordBtn.disabled = true;
+
+      try {
+        const response = await fetch(WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            action: 'post_discord', 
+            password: sessionPassword, 
+            standings: currentStandings,
+            dateString: `${startDate} to ${endDate}`
+          })
+        });
+
+        if (response.ok) {
+          discordBtn.innerText = 'Posted!';
+          setTimeout(() => {
+            discordBtn.innerText = originalText;
+            discordBtn.disabled = false;
+          }, 3000);
+        } else {
+          discordBtn.innerText = 'Error';
+          discordBtn.disabled = false;
+        }
+      } catch (e) {
+        discordBtn.innerText = 'Error';
+        discordBtn.disabled = false;
       }
     });
   </script>
