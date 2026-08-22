@@ -175,42 +175,60 @@
       const startUnix = Math.floor(new Date(startDate).getTime() / 1000);
       const endUnix = Math.floor(new Date(endDate).getTime() / 1000);
 
-      standingsBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #888;">Fetching data...</td></tr>';
+      standingsBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #888;">Fetching member list...</td></tr>';
 
       try {
-        const response = await fetch(WORKER_URL, {
+        const memberRes = await fetch(WORKER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            action: 'fetch_standings', 
-            password: sessionPassword, 
-            startUnix, 
-            endUnix 
-          })
+          body: JSON.stringify({ action: 'get_members', password: sessionPassword })
         });
         
-        const result = await response.json();
+        const memberResult = await memberRes.json();
+        if (!memberResult.success) {
+          standingsBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #ff5555;">Error: ${memberResult.error}</td></tr>`;
+          return;
+        }
 
-        if (result.success) {
-          standingsBody.innerHTML = '';
+        const members = Object.entries(memberResult.members);
+        const total = members.length;
+        const standings = [];
+
+        for (let i = 0; i < total; i++) {
+          const [id, member] = members[i];
+          standingsBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #888;">Fetching stats: ${i + 1} / ${total} members...</td></tr>`;
           
-          result.data.forEach((member, index) => {
-            if (member.fills > 0) {
-              standingsBody.innerHTML += `
-                <tr>
-                  <td>${index + 1}</td>
-                  <td><a href="https://www.torn.com/profiles.php?XID=${member.id}" target="_blank" style="color: #dfdfdf; text-decoration: none;">${member.name}</a></td>
-                  <td>${member.fills}</td>
-                </tr>
-              `;
-            }
+          const statRes = await fetch(WORKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'get_user_stats', password: sessionPassword, startUnix, endUnix, userId: id })
           });
-
-          if (standingsBody.innerHTML === '') {
-             standingsBody.innerHTML = '<tr><td colspan="3" style="text-align: center;">No activity found.</td></tr>';
+          const statResult = await statRes.json();
+          
+          if (statResult.success) {
+            standings.push({ id, name: member.name, fills: statResult.fills });
           }
-        } else {
-          standingsBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #ff5555;">Error: ${result.error}</td></tr>`;
+
+          await new Promise(r => setTimeout(r, 200));
+        }
+
+        standings.sort((a, b) => b.fills - a.fills);
+        standingsBody.innerHTML = '';
+        
+        standings.forEach((member, index) => {
+          if (member.fills > 0) {
+            standingsBody.innerHTML += `
+              <tr>
+                <td>${index + 1}</td>
+                <td><a href="https://www.torn.com/profiles.php?XID=${member.id}" target="_blank" style="color: #dfdfdf; text-decoration: none;">${member.name}</a></td>
+                <td>${member.fills}</td>
+              </tr>
+            `;
+          }
+        });
+
+        if (standingsBody.innerHTML === '') {
+           standingsBody.innerHTML = '<tr><td colspan="3" style="text-align: center;">No activity found.</td></tr>';
         }
       } catch (e) {
         standingsBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #ff5555;">Network error.</td></tr>';
