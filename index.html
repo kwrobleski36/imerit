@@ -212,89 +212,48 @@
 
       const startUnix = Math.floor(new Date(`${startDate}T00:00:00Z`).getTime() / 1000);
       const endUnix = Math.floor(new Date(`${endDate}T23:59:59Z`).getTime() / 1000);
-      const currentUnix = Math.floor(Date.now() / 1000);
 
       const colSpan = currentStatName === 'xantaken' ? 4 : 3;
-      standingsBody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; color: #888;">Fetching member list...</td></tr>`;
+      standingsBody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; color: #888;">Fetching faction contributors snapshot...</td></tr>`;
 
       try {
-        const memberRes = await fetch(WORKER_URL, {
+        const response = await fetch(WORKER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'get_members', password: sessionPassword })
+          body: JSON.stringify({ 
+            action: 'get_standings', 
+            password: sessionPassword, 
+            startUnix, 
+            endUnix, 
+            statName: currentStatName 
+          })
         });
         
-        const memberResult = await memberRes.json();
-        if (!memberResult.success) {
-          standingsBody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; color: #ff5555;">Error: ${memberResult.error}</td></tr>`;
-          return;
-        }
-
-        const members = Object.entries(memberResult.members);
-        const total = members.length;
-        const standings = [];
-
-        for (let i = 0; i < total; i++) {
-          const [id, member] = members[i];
+        const result = await response.json();
+        
+        if (result.success) {
+          currentStandings = result.standings;
+          standingsBody.innerHTML = '';
           
-          const memberJoinUnix = currentUnix - ((member.days_in_faction || 0) * 86400);
-          
-          if (memberJoinUnix > endUnix) {
-            continue;
-          }
-
-          let adjustedStartUnix = startUnix;
-          if (memberJoinUnix > startUnix) {
-            adjustedStartUnix = memberJoinUnix;
-          }
-
-          const memberDays = Math.max(1, Math.round((endUnix - adjustedStartUnix + 1) / 86400));
-
-          standingsBody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; color: #888;">Fetching stats: ${i + 1} / ${total} members...</td></tr>`;
-          
-          const statRes = await fetch(WORKER_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              action: 'get_user_stats', 
-              password: sessionPassword, 
-              startUnix: adjustedStartUnix, 
-              endUnix, 
-              userId: id,
-              statName: currentStatName 
-            })
+          currentStandings.forEach((member, index) => {
+            let extraTd = currentStatName === 'xantaken' ? `<td>${member.dailyAvg}</td>` : '';
+            standingsBody.innerHTML += `
+              <tr>
+                <td>${index + 1}</td>
+                <td><a href="https://www.torn.com/profiles.php?XID=${member.id}" target="_blank">${member.name}</a></td>
+                <td>${member.score}</td>
+                ${extraTd}
+              </tr>
+            `;
           });
-          const statResult = await statRes.json();
-          
-          if (statResult.success) {
-            const score = statResult.score;
-            const dailyAvg = (score / memberDays).toFixed(2);
-            standings.push({ id, name: member.name, score, dailyAvg });
+
+          if (standingsBody.innerHTML === '') {
+             standingsBody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center;">No activity found.</td></tr>`;
+          } else {
+             discordBtn.style.display = 'block';
           }
-
-          await new Promise(r => setTimeout(r, 200));
-        }
-
-        standings.sort((a, b) => b.score - a.score);
-        currentStandings = standings.filter(m => m.score > 0);
-        standingsBody.innerHTML = '';
-        
-        currentStandings.forEach((member, index) => {
-          let extraTd = currentStatName === 'xantaken' ? `<td>${member.dailyAvg}</td>` : '';
-          standingsBody.innerHTML += `
-            <tr>
-              <td>${index + 1}</td>
-              <td><a href="https://www.torn.com/profiles.php?XID=${member.id}" target="_blank">${member.name}</a></td>
-              <td>${member.score}</td>
-              ${extraTd}
-            </tr>
-          `;
-        });
-
-        if (standingsBody.innerHTML === '') {
-           standingsBody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center;">No activity found.</td></tr>`;
         } else {
-           discordBtn.style.display = 'block';
+          standingsBody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; color: #ff5555;">Error: ${result.error}</td></tr>`;
         }
       } catch (e) {
         standingsBody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; color: #ff5555;">Network error.</td></tr>`;
