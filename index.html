@@ -145,10 +145,11 @@
                 <th>Rank</th>
                 <th>Member</th>
                 <th id="score-header">Fills</th>
+                <th id="avg-header" style="display: none;">Avg/Day</th>
               </tr>
             </thead>
             <tbody id="standings-body">
-              <tr><td colspan="3" style="text-align: center; color: #888;">Select dates and pull data.</td></tr>
+              <tr><td colspan="4" style="text-align: center; color: #888;">Select dates and pull data.</td></tr>
             </tbody>
           </table>
         </div>
@@ -161,6 +162,7 @@
     const WORKER_URL = 'https://comp-hub-backend.kwrobleski.workers.dev'; 
     let sessionPassword = '';
     let currentStandings = [];
+    let currentStatName = '';
 
     document.getElementById('login-btn').addEventListener('click', async () => {
       const password = document.getElementById('password').value;
@@ -190,14 +192,15 @@
       const startDate = document.getElementById('start-date').value;
       const endDate = document.getElementById('end-date').value;
       const compSelect = document.getElementById('comp-type');
-      const statName = compSelect.value;
+      currentStatName = compSelect.value;
       const compName = compSelect.options[compSelect.selectedIndex].text;
       
       const standingsBody = document.getElementById('standings-body');
       const discordBtn = document.getElementById('discord-btn');
       
       document.getElementById('module-title').innerText = compName;
-      document.getElementById('score-header').innerText = statName === 'bloodwithdrawn' ? 'Fills' : 'Taken';
+      document.getElementById('score-header').innerText = currentStatName === 'bloodwithdrawn' ? 'Fills' : 'Taken';
+      document.getElementById('avg-header').style.display = currentStatName === 'xantaken' ? 'table-cell' : 'none';
 
       if (!startDate || !endDate) {
         alert("Select Start and End dates.");
@@ -211,7 +214,8 @@
       const endUnix = Math.floor(new Date(`${endDate}T23:59:59Z`).getTime() / 1000);
       const currentUnix = Math.floor(Date.now() / 1000);
 
-      standingsBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #888;">Fetching member list...</td></tr>';
+      const colSpan = currentStatName === 'xantaken' ? 4 : 3;
+      standingsBody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; color: #888;">Fetching member list...</td></tr>`;
 
       try {
         const memberRes = await fetch(WORKER_URL, {
@@ -222,7 +226,7 @@
         
         const memberResult = await memberRes.json();
         if (!memberResult.success) {
-          standingsBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #ff5555;">Error: ${memberResult.error}</td></tr>`;
+          standingsBody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; color: #ff5555;">Error: ${memberResult.error}</td></tr>`;
           return;
         }
 
@@ -244,7 +248,9 @@
             adjustedStartUnix = memberJoinUnix;
           }
 
-          standingsBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #888;">Fetching stats: ${i + 1} / ${total} members...</td></tr>`;
+          const memberDays = Math.max(1, Math.round((endUnix - adjustedStartUnix + 1) / 86400));
+
+          standingsBody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; color: #888;">Fetching stats: ${i + 1} / ${total} members...</td></tr>`;
           
           const statRes = await fetch(WORKER_URL, {
             method: 'POST',
@@ -255,13 +261,15 @@
               startUnix: adjustedStartUnix, 
               endUnix, 
               userId: id,
-              statName 
+              statName: currentStatName 
             })
           });
           const statResult = await statRes.json();
           
           if (statResult.success) {
-            standings.push({ id, name: member.name, score: statResult.score });
+            const score = statResult.score;
+            const dailyAvg = (score / memberDays).toFixed(2);
+            standings.push({ id, name: member.name, score, dailyAvg });
           }
 
           await new Promise(r => setTimeout(r, 200));
@@ -272,22 +280,24 @@
         standingsBody.innerHTML = '';
         
         currentStandings.forEach((member, index) => {
+          let extraTd = currentStatName === 'xantaken' ? `<td>${member.dailyAvg}</td>` : '';
           standingsBody.innerHTML += `
             <tr>
               <td>${index + 1}</td>
               <td><a href="https://www.torn.com/profiles.php?XID=${member.id}" target="_blank">${member.name}</a></td>
               <td>${member.score}</td>
+              ${extraTd}
             </tr>
           `;
         });
 
         if (standingsBody.innerHTML === '') {
-           standingsBody.innerHTML = '<tr><td colspan="3" style="text-align: center;">No activity found.</td></tr>';
+           standingsBody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center;">No activity found.</td></tr>`;
         } else {
            discordBtn.style.display = 'block';
         }
       } catch (e) {
-        standingsBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #ff5555;">Network error.</td></tr>';
+        standingsBody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; color: #ff5555;">Network error.</td></tr>`;
       }
     });
 
@@ -311,7 +321,8 @@
             password: sessionPassword, 
             standings: currentStandings,
             dateString: `${startDate} to ${endDate}`,
-            compName: compName
+            compName: compName,
+            statName: currentStatName
           })
         });
 
