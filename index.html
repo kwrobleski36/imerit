@@ -195,6 +195,7 @@
 
       const startUnix = Math.floor(new Date(`${startDate}T00:00:00Z`).getTime() / 1000);
       const endUnix = Math.floor(new Date(`${endDate}T23:59:59Z`).getTime() / 1000);
+      const currentUnix = Math.floor(Date.now() / 1000);
 
       standingsBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #888;">Fetching member list...</td></tr>';
 
@@ -217,12 +218,24 @@
 
         for (let i = 0; i < total; i++) {
           const [id, member] = members[i];
+          
+          const memberJoinUnix = currentUnix - ((member.days_in_faction || 0) * 86400);
+          
+          if (memberJoinUnix > endUnix) {
+            continue;
+          }
+
+          let adjustedStartUnix = startUnix;
+          if (memberJoinUnix > startUnix) {
+            adjustedStartUnix = memberJoinUnix;
+          }
+
           standingsBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #888;">Fetching stats: ${i + 1} / ${total} members...</td></tr>`;
           
           const statRes = await fetch(WORKER_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'get_user_stats', password: sessionPassword, startUnix, endUnix, userId: id })
+            body: JSON.stringify({ action: 'get_user_stats', password: sessionPassword, startUnix: adjustedStartUnix, endUnix, userId: id })
           });
           const statResult = await statRes.json();
           
