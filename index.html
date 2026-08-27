@@ -137,7 +137,7 @@
       <hr>
 
       <div id="module-container">
-        <p id="module-title" style="margin-bottom: 5px; font-weight: bold;">Blood Bag Fills</p>
+        <p id="module-title" style="margin-bottom: 5px; font-weight: bold;">Blood Bag Fills (Armory Logs)</p>
         <div class="sunken-panel">
           <table>
             <thead>
@@ -219,7 +219,6 @@
 
       const colSpan = isXanax ? 4 : 3;
 
-      // New Armory Pagination Flow
       if (isArmory) {
         standingsBody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; color: #888;">Parsing armory logs... (May take a moment)</td></tr>`;
         try {
@@ -252,7 +251,6 @@
         return; 
       }
 
-      // Existing Xanax Loop Flow
       standingsBody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; color: #888;">Fetching member list...</td></tr>`;
 
       try {
