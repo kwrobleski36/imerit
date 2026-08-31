@@ -10,7 +10,7 @@
             color: #ffffff; 
         }
         .container { 
-            max-width: 600px; 
+            max-width: 800px; 
             margin: auto; 
             background: #2d2d2d; 
             padding: 20px; 
@@ -26,59 +26,111 @@
             border: 1px solid #555;
         }
         input { background: #111; color: #fff; }
-        button { 
+        .primary-btn { 
             background: #4CAF50; 
             color: white; 
             font-weight: bold; 
             cursor: pointer; 
             border: none;
         }
-        button:hover { background: #45a049; }
-        #results { 
+        .primary-btn:hover { background: #45a049; }
+        
+        .csv-btn {
+            background: #2196F3;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            display: none; /* Hidden until data loads */
+            margin-top: 0;
+        }
+        .csv-btn:hover { background: #1976D2; }
+
+        .table-container { 
             margin-top: 20px; 
             background: #111; 
-            padding: 15px; 
             border-radius: 5px; 
-            height: 400px; 
+            max-height: 500px; /* Prevents screen flooding */
             overflow-y: auto; 
         }
-        .log-entry { 
-            margin-bottom: 8px; 
-            font-size: 14px; 
-            border-bottom: 1px solid #444; 
-            padding-bottom: 8px; 
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
         }
-        .timestamp { color: #888; font-size: 12px; display: block; margin-bottom: 2px;}
+        th, td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid #333;
+        }
+        th {
+            background-color: #222;
+            position: sticky;
+            top: 0;
+            color: #4CAF50;
+        }
+        tr:nth-child(even) { background-color: #1a1a1a; }
+        tr:hover { background-color: #2a2a2a; }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 15px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h2>Faction Blood Bag Tracker</h2>
         
-        <!-- Login Screen -->
         <div id="loginScreen">
             <label>Enter your Torn API Key (Limited Access):</label>
             <input type="password" id="apiKeyInput" placeholder="Paste your API key here..." />
-            <button onclick="fetchLogs()">Get Blood Bag Logs</button>
+            <button class="primary-btn" onclick="fetchLogs()">Fetch Armory Logs</button>
         </div>
 
-        <!-- Results Screen -->
-        <div id="results">Waiting for API key...</div>
+        <div class="controls">
+            <div id="statusMessage"></div>
+            <button id="csvButton" class="csv-btn" onclick="downloadCSV()">Download as CSV</button>
+        </div>
+
+        <div class="table-container">
+            <table id="resultsTable">
+                <thead>
+                    <tr>
+                        <th>Date & Time</th>
+                        <th>Activity Log</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody">
+                    <!-- Data populates here -->
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <script>
+        // Store data globally so the CSV button can access it
+        let globalBloodBagData = [];
+
         async function fetchLogs() {
             const apiKey = document.getElementById('apiKeyInput').value.trim();
-            const resultsDiv = document.getElementById('results');
+            const statusDiv = document.getElementById('statusMessage');
+            const resultsBody = document.getElementById('resultsBody');
+            const csvBtn = document.getElementById('csvButton');
             
             if (!apiKey) {
-                resultsDiv.innerHTML = "<span style='color: #ff5555;'>Please enter an API key.</span>";
+                statusDiv.innerHTML = "<span style='color: #ff5555;'>Please enter an API key.</span>";
                 return;
             }
 
-            resultsDiv.innerHTML = "Connecting to Torn API v2...";
+            statusDiv.innerHTML = "Fetching data from Torn...";
+            csvBtn.style.display = "none";
+            resultsBody.innerHTML = "";
+            globalBloodBagData = [];
 
-            // CORRECTED: 'cat' is now 'armorynews' instead of 'armory'
             const url = `https://api.torn.com/v2/faction/news?cat=armorynews&key=${apiKey}`;
             
             try {
@@ -86,37 +138,69 @@
                 const data = await response.json();
                 
                 if (data.error) {
-                    resultsDiv.innerHTML = `<span style='color: #ff5555;'>API Error: ${data.error.error}</span>`;
+                    statusDiv.innerHTML = `<span style='color: #ff5555;'>API Error: ${data.error.error}</span>`;
                     return;
                 }
 
                 if (!data.news) {
-                    resultsDiv.innerHTML = "<span style='color: #ff5555;'>No news data found. Ensure your API key has faction access permissions.</span>";
+                    statusDiv.innerHTML = "<span style='color: #ff5555;'>No news data found.</span>";
                     return;
                 }
 
-                // Filter specifically for Blood Bags
                 const bloodBagLogs = data.news.filter(log => log.news.includes("Blood Bag"));
 
                 if (bloodBagLogs.length === 0) {
-                    resultsDiv.innerHTML = "No blood bag activity found in the recent armory logs.";
+                    statusDiv.innerHTML = "No blood bag activity found in recent logs.";
                     return;
                 }
 
-                // Print the filtered results to the screen
-                resultsDiv.innerHTML = ""; 
+                statusDiv.innerHTML = `<span style='color: #4CAF50;'>Found ${bloodBagLogs.length} blood bag records.</span>`;
+                
                 bloodBagLogs.forEach(log => {
                     const date = new Date(log.timestamp * 1000).toLocaleString();
-                    resultsDiv.innerHTML += `
-                        <div class="log-entry">
-                            <span class="timestamp">${date}</span>
-                            ${log.news}
-                        </div>`;
+                    
+                    // Strip HTML tags (like profile links) from the news string for a cleaner spreadsheet
+                    const cleanText = log.news.replace(/<[^>]*>?/gm, '');
+                    
+                    // Save for CSV
+                    globalBloodBagData.push({ date: date, text: cleanText });
+
+                    // Add to HTML table
+                    resultsBody.innerHTML += `
+                        <tr>
+                            <td style="white-space: nowrap; color: #aaa;">${date}</td>
+                            <td>${log.news}</td>
+                        </tr>`;
                 });
 
+                // Show the CSV download button now that we have data
+                csvBtn.style.display = "block";
+
             } catch (error) {
-                resultsDiv.innerHTML = `<span style='color: #ff5555;'>Connection error: ${error.message}</span>`;
+                statusDiv.innerHTML = `<span style='color: #ff5555;'>Connection error: ${error.message}</span>`;
             }
+        }
+
+        function downloadCSV() {
+            if (globalBloodBagData.length === 0) return;
+
+            // Create CSV headers
+            let csvContent = "data:text/csv;charset=utf-8,Date,Activity\n";
+            
+            // Loop through data and format as CSV rows
+            globalBloodBagData.forEach(row => {
+                // Wrap text in quotes so commas in the text don't break the columns
+                csvContent += `"${row.date}","${row.text}"\n`;
+            });
+
+            // Trigger the download
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "BloodBag_Logs.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
     </script>
 </body>
