@@ -1,376 +1,124 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Competition Hub</title>
-  <link rel="stylesheet" href="https://unpkg.com/98.css">
-  
-  <style>
-    body {
-      background-color: #121212;
-      color: #dfdfdf;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
-      font-family: Arial, sans-serif;
-    }
-    .window {
-      background: #2b2b2b;
-      box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #4d4d4d, inset -2px -2px #1e1e1e, inset 2px 2px #3d3d3d;
-    }
-    .title-bar {
-      background: linear-gradient(90deg, #000080, #1084d0);
-    }
-    button {
-      background: #2b2b2b;
-      color: #dfdfdf;
-      box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #4d4d4d, inset -2px -2px #1e1e1e, inset 2px 2px #3d3d3d;
-      cursor: pointer;
-    }
-    button:active {
-      box-shadow: inset -1px -1px #4d4d4d, inset 1px 1px #0a0a0a, inset -2px -2px #3d3d3d, inset 2px 2px #1e1e1e;
-    }
-    input[type="password"], input[type="date"], select {
-      background: #1e1e1e;
-      color: #dfdfdf;
-      border: none;
-      box-shadow: inset -1px -1px #4d4d4d, inset 1px 1px #0a0a0a, inset -2px -2px #3d3d3d, inset 2px 2px #1e1e1e;
-      padding: 4px;
-    }
-    input[type="date"]::-webkit-calendar-picker-indicator {
-      filter: invert(1);
-      cursor: pointer;
-    }
-    #hub-section {
-      display: none;
-    }
-    .sunken-panel {
-      background: #1e1e1e;
-      box-shadow: inset -1px -1px #4d4d4d, inset 1px 1px #0a0a0a, inset -2px -2px #3d3d3d, inset 2px 2px #1e1e1e;
-      padding: 10px;
-      margin-top: 15px;
-      height: 250px;
-      overflow-y: auto;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    th, td {
-      text-align: left;
-      padding: 4px 8px;
-      border-bottom: 1px solid #3d3d3d;
-    }
-    th {
-      background-color: #2b2b2b;
-    }
-    tbody {
-      background-color: #ffffff;
-      color: #000000;
-    }
-    tbody td a {
-      color: #000000 !important;
-      text-decoration: none;
-    }
-    tbody td a:hover {
-      text-decoration: underline;
-    }
-    .controls-row {
-      display: flex;
-      gap: 15px;
-      align-items: flex-end;
-      margin-bottom: 10px;
-    }
-    .flex-space {
-      flex-grow: 1;
-    }
-  </style>
+    <title>Blood Bag Tracker</title>
+    <style>
+        body { 
+            font-family: sans-serif; 
+            padding: 20px; 
+            background: #1e1e1e; 
+            color: #ffffff; 
+        }
+        .container { 
+            max-width: 600px; 
+            margin: auto; 
+            background: #2d2d2d; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        input, button { 
+            padding: 10px; 
+            margin: 10px 0; 
+            width: 100%; 
+            box-sizing: border-box; 
+            border-radius: 4px;
+            border: 1px solid #555;
+        }
+        input { background: #111; color: #fff; }
+        button { 
+            background: #4CAF50; 
+            color: white; 
+            font-weight: bold; 
+            cursor: pointer; 
+            border: none;
+        }
+        button:hover { background: #45a049; }
+        #results { 
+            margin-top: 20px; 
+            background: #111; 
+            padding: 15px; 
+            border-radius: 5px; 
+            height: 400px; 
+            overflow-y: auto; 
+        }
+        .log-entry { 
+            margin-bottom: 8px; 
+            font-size: 14px; 
+            border-bottom: 1px solid #444; 
+            padding-bottom: 8px; 
+        }
+        .timestamp { color: #888; font-size: 12px; display: block; margin-bottom: 2px;}
+    </style>
 </head>
 <body>
-
-  <div class="window" id="login-section" style="width: 300px;">
-    <div class="title-bar">
-      <div class="title-bar-text">Competition Hub - System Login</div>
-    </div>
-    <div class="window-body">
-      <div class="field-row-stacked">
-        <label for="password">Authentication Key:</label>
-        <input id="password" type="password" style="width: 100%; margin-top: 5px;">
-      </div>
-      <div style="text-align: right; margin-top: 15px;">
-        <button id="login-btn">Enter</button>
-      </div>
-      <p id="error-msg" style="color: #ff5555; display: none; margin-top: 10px; text-align: center;">Access Denied.</p>
-    </div>
-  </div>
-
-  <div class="window" id="hub-section" style="width: 650px;">
-    <div class="title-bar">
-      <div class="title-bar-text">Competition Hub - Dashboard</div>
-    </div>
-    <div class="window-body">
-      
-      <div class="controls-row">
-        <div class="field-row-stacked">
-          <label for="comp-type">Metric:</label>
-          <select id="comp-type">
-            <option value="armory_blood_bags">Blood Bag Fills (Armory Logs)</option>
-            <option value="xantaken">Xanax Taken</option>
-          </select>
-        </div>
-        <div class="field-row-stacked">
-          <label for="start-date">Start Date (TCT):</label>
-          <input id="start-date" type="date">
-        </div>
-        <div class="field-row-stacked">
-          <label for="end-date">End Date (TCT):</label>
-          <input id="end-date" type="date">
-        </div>
-        <button id="fetch-btn">Pull Standings</button>
-        <div class="flex-space"></div>
-        <button id="discord-btn" style="display: none;">Post to Discord</button>
-      </div>
-
-      <hr>
-
-      <div id="module-container">
-        <p id="module-title" style="margin-bottom: 5px; font-weight: bold;">Blood Bag Fills (Armory Logs)</p>
-        <div class="sunken-panel">
-          <table>
-            <thead>
-              <tr>
-                <th>Rank</th>
-                <th>Member</th>
-                <th id="score-header">Fills</th>
-                <th id="avg-header" style="display: none;">Avg/Day</th>
-              </tr>
-            </thead>
-            <tbody id="standings-body">
-              <tr><td colspan="4" style="text-align: center; color: #888;">Select dates and pull data.</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <script>
-    const WORKER_URL = 'https://comp-hub-backend.kwrobleski.workers.dev'; 
-    let sessionPassword = '';
-    let currentStandings = [];
-    let currentStatName = '';
-
-    document.getElementById('login-btn').addEventListener('click', async () => {
-      const password = document.getElementById('password').value;
-      const errorMsg = document.getElementById('error-msg');
-      
-      try {
-        const response = await fetch(WORKER_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'login', password })
-        });
-
-        if (response.ok) {
-          sessionPassword = password;
-          document.getElementById('login-section').style.display = 'none';
-          document.getElementById('hub-section').style.display = 'block';
-        } else {
-          errorMsg.style.display = 'block';
-        }
-      } catch (e) {
-        errorMsg.innerText = "Network Error.";
-        errorMsg.style.display = 'block';
-      }
-    });
-
-    document.getElementById('fetch-btn').addEventListener('click', async () => {
-      const startDate = document.getElementById('start-date').value;
-      const endDate = document.getElementById('end-date').value;
-      const compSelect = document.getElementById('comp-type');
-      currentStatName = compSelect.value;
-      const compName = compSelect.options[compSelect.selectedIndex].text;
-      
-      const standingsBody = document.getElementById('standings-body');
-      const discordBtn = document.getElementById('discord-btn');
-      
-      const isArmory = currentStatName === 'armory_blood_bags';
-      const isXanax = currentStatName === 'xantaken';
-
-      document.getElementById('module-title').innerText = compName;
-      document.getElementById('score-header').innerText = isArmory ? 'Fills' : 'Taken';
-      document.getElementById('avg-header').style.display = isXanax ? 'table-cell' : 'none';
-
-      if (!startDate || !endDate) {
-        alert("Select Start and End dates.");
-        return;
-      }
-
-      discordBtn.style.display = 'none';
-      currentStandings = [];
-
-      const startUnix = Math.floor(new Date(`${startDate}T00:00:00Z`).getTime() / 1000);
-      const endUnix = Math.floor(new Date(`${endDate}T23:59:59Z`).getTime() / 1000);
-      const currentUnix = Math.floor(Date.now() / 1000);
-
-      const colSpan = isXanax ? 4 : 3;
-
-      if (isArmory) {
-        standingsBody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; color: #888;">Parsing armory logs... (May take a moment)</td></tr>`;
-        try {
-          const res = await fetch(WORKER_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'fetch_armory_blood_bags', password: sessionPassword, startUnix, endUnix })
-          });
-          const result = await res.json();
-          if (result.success) {
-            currentStandings = result.standings;
-            standingsBody.innerHTML = '';
-            currentStandings.forEach((member, index) => {
-              standingsBody.innerHTML += `
-                <tr>
-                  <td>${index + 1}</td>
-                  <td><a href="https://www.torn.com/profiles.php?XID=${member.id}" target="_blank">${member.name}</a></td>
-                  <td>${member.score}</td>
-                </tr>
-              `;
-            });
-            if (currentStandings.length === 0) standingsBody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center;">No activity found.</td></tr>`;
-            else discordBtn.style.display = 'block';
-          } else {
-            standingsBody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; color: #ff5555;">Error: ${result.error}</td></tr>`;
-          }
-        } catch (e) {
-          standingsBody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; color: #ff5555;">Network error.</td></tr>`;
-        }
-        return; 
-      }
-
-      standingsBody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; color: #888;">Fetching member list...</td></tr>`;
-
-      try {
-        const memberRes = await fetch(WORKER_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'get_members', password: sessionPassword })
-        });
+    <div class="container">
+        <h2>Faction Blood Bag Tracker</h2>
         
-        const memberResult = await memberRes.json();
-        if (!memberResult.success) {
-          standingsBody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; color: #ff5555;">Error: ${memberResult.error}</td></tr>`;
-          return;
+        <!-- Login Screen -->
+        <div id="loginScreen">
+            <label>Enter your Torn API Key (Limited Access):</label>
+            <input type="password" id="apiKeyInput" placeholder="Paste your API key here..." />
+            <button onclick="fetchLogs()">Get Blood Bag Logs</button>
+        </div>
+
+        <!-- Results Screen -->
+        <div id="results">Waiting for API key...</div>
+    </div>
+
+    <script>
+        async function fetchLogs() {
+            const apiKey = document.getElementById('apiKeyInput').value.trim();
+            const resultsDiv = document.getElementById('results');
+            
+            if (!apiKey) {
+                resultsDiv.innerHTML = "<span style='color: #ff5555;'>Please enter an API key.</span>";
+                return;
+            }
+
+            resultsDiv.innerHTML = "Connecting to Torn API v2...";
+
+            // API v2 Faction News Endpoint targeting the Armory
+            const url = `https://api.torn.com/v2/faction/news?cat=armory&key=${apiKey}`;
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.error) {
+                    resultsDiv.innerHTML = `<span style='color: #ff5555;'>API Error: ${data.error.error}</span>`;
+                    return;
+                }
+
+                if (!data.news) {
+                    resultsDiv.innerHTML = "<span style='color: #ff5555;'>No news data found. Ensure your API key has faction access permissions.</span>";
+                    return;
+                }
+
+                // Filter specifically for Blood Bags
+                const bloodBagLogs = data.news.filter(log => log.news.includes("Blood Bag"));
+
+                if (bloodBagLogs.length === 0) {
+                    resultsDiv.innerHTML = "No blood bag activity found in the recent armory logs.";
+                    return;
+                }
+
+                // Print the filtered results to the screen
+                resultsDiv.innerHTML = ""; 
+                bloodBagLogs.forEach(log => {
+                    // Convert Torn's UNIX timestamp to your local time
+                    const date = new Date(log.timestamp * 1000).toLocaleString();
+                    resultsDiv.innerHTML += `
+                        <div class="log-entry">
+                            <span class="timestamp">${date}</span>
+                            ${log.news}
+                        </div>`;
+                });
+
+            } catch (error) {
+                resultsDiv.innerHTML = `<span style='color: #ff5555;'>Connection error: ${error.message}</span>`;
+            }
         }
-
-        const members = Object.entries(memberResult.members);
-        const total = members.length;
-        const standings = [];
-
-        for (let i = 0; i < total; i++) {
-          const [id, member] = members[i];
-          
-          const memberJoinUnix = currentUnix - ((member.days_in_faction || 0) * 86400);
-          if (memberJoinUnix > endUnix) continue;
-
-          let adjustedStartUnix = startUnix;
-          if (memberJoinUnix > startUnix) adjustedStartUnix = memberJoinUnix;
-
-          const memberDays = Math.max(1, Math.round((endUnix - adjustedStartUnix + 1) / 86400));
-
-          standingsBody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; color: #888;">Fetching stats: ${i + 1} / ${total} members...</td></tr>`;
-          
-          const statRes = await fetch(WORKER_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              action: 'get_user_stats', 
-              password: sessionPassword, 
-              startUnix: adjustedStartUnix, 
-              endUnix, 
-              userId: id,
-              statName: currentStatName 
-            })
-          });
-          const statResult = await statRes.json();
-          
-          if (statResult.success) {
-            const score = statResult.score;
-            const dailyAvg = (score / memberDays).toFixed(2);
-            standings.push({ id, name: member.name, score, dailyAvg });
-          }
-
-          await new Promise(r => setTimeout(r, 200));
-        }
-
-        standings.sort((a, b) => b.score - a.score);
-        currentStandings = standings.filter(m => m.score > 0);
-        standingsBody.innerHTML = '';
-        
-        currentStandings.forEach((member, index) => {
-          standingsBody.innerHTML += `
-            <tr>
-              <td>${index + 1}</td>
-              <td><a href="https://www.torn.com/profiles.php?XID=${member.id}" target="_blank">${member.name}</a></td>
-              <td>${member.score}</td>
-              <td>${member.dailyAvg}</td>
-            </tr>
-          `;
-        });
-
-        if (standingsBody.innerHTML === '') {
-           standingsBody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center;">No activity found.</td></tr>`;
-        } else {
-           discordBtn.style.display = 'block';
-        }
-      } catch (e) {
-        standingsBody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; color: #ff5555;">Network error.</td></tr>`;
-      }
-    });
-
-    document.getElementById('discord-btn').addEventListener('click', async () => {
-      const startDate = document.getElementById('start-date').value;
-      const endDate = document.getElementById('end-date').value;
-      const compSelect = document.getElementById('comp-type');
-      const compName = compSelect.options[compSelect.selectedIndex].text;
-      const discordBtn = document.getElementById('discord-btn');
-      
-      const originalText = discordBtn.innerText;
-      discordBtn.innerText = 'Posting...';
-      discordBtn.disabled = true;
-
-      try {
-        const response = await fetch(WORKER_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            action: 'post_discord', 
-            password: sessionPassword, 
-            standings: currentStandings,
-            dateString: `${startDate} to ${endDate}`,
-            compName: compName,
-            statName: currentStatName
-          })
-        });
-
-        if (response.ok) {
-          discordBtn.innerText = 'Posted!';
-          setTimeout(() => {
-            discordBtn.innerText = originalText;
-            discordBtn.disabled = false;
-          }, 3000);
-        } else {
-          discordBtn.innerText = 'Error';
-          discordBtn.disabled = false;
-        }
-      } catch (e) {
-        discordBtn.innerText = 'Error';
-        discordBtn.disabled = false;
-      }
-    });
-  </script>
+    </script>
 </body>
 </html>
