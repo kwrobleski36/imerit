@@ -26,12 +26,27 @@
             border: 1px solid #555;
         }
         input { background: #111; color: #fff; }
+        
+        .date-time-row {
+            display: flex;
+            gap: 15px;
+            margin: 10px 0;
+        }
+        .date-time-row div {
+            flex: 1;
+        }
+        label {
+            font-size: 14px;
+            color: #aaa;
+        }
+
         .primary-btn { 
             background: #e53935; 
             color: white; 
             font-weight: bold; 
             cursor: pointer; 
             border: none;
+            margin-top: 20px;
         }
         .primary-btn:hover { background: #c62828; }
         
@@ -77,6 +92,18 @@
         <div id="loginScreen">
             <label>Enter your Torn API Key (Limited Access):</label>
             <input type="password" id="apiKeyInput" placeholder="Paste your API key here..." />
+            
+            <div class="date-time-row">
+                <div>
+                    <label>Competition Start Date:</label>
+                    <input type="date" id="startDate" />
+                </div>
+                <div>
+                    <label>Start Time (Your Local Time):</label>
+                    <input type="time" id="startTime" />
+                </div>
+            </div>
+
             <button class="primary-btn" onclick="runDashboard()">Load Dashboard</button>
         </div>
         
@@ -100,7 +127,7 @@
 
         <!-- Section 2: The Leaderboard -->
         <div class="dashboard-section" id="leaderboardSection" style="display: none;">
-            <h3>2. Player Leaderboard (Bags Filled)</h3>
+            <h3 id="leaderboardTitle">2. Player Leaderboard (Bags Filled)</h3>
             <div class="table-container">
                 <table>
                     <thead>
@@ -121,18 +148,28 @@
             const apiKey = document.getElementById('apiKeyInput').value.trim();
             const statusDiv = document.getElementById('statusMessage');
             
+            const startDateVal = document.getElementById('startDate').value;
+            const startTimeVal = document.getElementById('startTime').value;
+            
             if (!apiKey) {
                 statusDiv.innerHTML = "<span style='color: #ff5555;'>Please enter an API key.</span>";
                 return;
             }
 
+            // Convert the user's selected date/time into a UNIX timestamp
+            let startUnixTimestamp = 0;
+            if (startDateVal) {
+                // Default to midnight if they pick a date but no time
+                const timeString = startTimeVal ? startTimeVal : '00:00'; 
+                const dateObj = new Date(`${startDateVal}T${timeString}`);
+                startUnixTimestamp = Math.floor(dateObj.getTime() / 1000);
+            }
+
             statusDiv.innerHTML = "Fetching snapshot and logs from Torn...";
             
-            // Hide sections while loading
             document.getElementById('snapshotSection').style.display = "none";
             document.getElementById('leaderboardSection').style.display = "none";
 
-            // Fetch both endpoints at the same time
             const medicalUrl = `https://api.torn.com/faction/?selections=medical&key=${apiKey}`;
             const newsUrl = `https://api.torn.com/faction/?selections=armorynews&key=${apiKey}`;
             
@@ -149,7 +186,7 @@
 
                 statusDiv.innerHTML = "<span style='color: #4CAF50;'>Dashboard loaded successfully!</span>";
 
-                // --- BUILD SNAPSHOT ---
+                // --- BUILD SNAPSHOT (Real-time, ignores date filter) ---
                 const snapshotBody = document.getElementById('snapshotBody');
                 snapshotBody.innerHTML = "";
                 if (medicalData.medical) {
@@ -166,37 +203,64 @@
                     document.getElementById('snapshotSection').style.display = "block";
                 }
 
-                // --- BUILD LEADERBOARD ---
+                // --- BUILD LEADERBOARD (Filtered by Date/Time) ---
                 const leaderboardBody = document.getElementById('leaderboardBody');
                 leaderboardBody.innerHTML = "";
                 if (newsData.armorynews) {
                     const playerTotals = {};
+                    let oldestLogTimestamp = Date.now() / 1000;
+                    
                     Object.values(newsData.armorynews).forEach(log => {
-                        if (log.news.includes("filled") && log.news.includes("faction's Empty Blood Bag")) {
-                            const nameMatch = log.news.match(/>([^<]+)<\/a>/);
-                            const playerName = nameMatch ? nameMatch[1] : "Unknown Player";
+                        // Track the oldest log we can see to warn the user
+                        if (log.timestamp < oldestLogTimestamp) {
+                            oldestLogTimestamp = log.timestamp;
+                        }
 
-                            let quantity = 1;
-                            const qtyMatch = log.news.match(/filled (one|\d+[\d,]*) of/i);
-                            if (qtyMatch) {
-                                quantity = qtyMatch[1].toLowerCase() === 'one' ? 1 : parseInt(qtyMatch[1].replace(/,/g, ''));
+                        // Apply the Date/Time filter
+                        if (log.timestamp >= startUnixTimestamp) {
+                            if (log.news.includes("filled") && log.news.includes("faction's Empty Blood Bag")) {
+                                const nameMatch = log.news.match(/>([^<]+)<\/a>/);
+                                const playerName = nameMatch ? nameMatch[1] : "Unknown Player";
+
+                                let quantity = 1;
+                                const qtyMatch = log.news.match(/filled (one|\d+[\d,]*) of/i);
+                                if (qtyMatch) {
+                                    quantity = qtyMatch[1].toLowerCase() === 'one' ? 1 : parseInt(qtyMatch[1].replace(/,/g, ''));
+                                }
+
+                                playerTotals[playerName] = (playerTotals[playerName] || 0) + quantity;
                             }
-
-                            playerTotals[playerName] = (playerTotals[playerName] || 0) + quantity;
                         }
                     });
 
                     const leaderboard = Object.keys(playerTotals).map(name => ({ name, total: playerTotals[name] }));
                     leaderboard.sort((a, b) => b.total - a.total);
 
-                    leaderboard.forEach((player, index) => {
-                        leaderboardBody.innerHTML += `
-                            <tr>
-                                <td class="rank">${index + 1}</td>
-                                <td style="color: #fff; font-weight: bold;">${player.name}</td>
-                                <td style="color: #e53935; font-weight: bold;">${player.total.toLocaleString()}</td>
-                            </tr>`;
-                    });
+                    // Update Title to reflect the filter status
+                    const titleEl = document.getElementById('leaderboardTitle');
+                    if (startUnixTimestamp > 0) {
+                        if (startUnixTimestamp < oldestLogTimestamp) {
+                            titleEl.innerHTML = `2. Player Leaderboard <span style="color:#ff9800; font-size:14px;">(Warning: Torn logs only go back to ${new Date(oldestLogTimestamp * 1000).toLocaleDateString()}, some early data may be missing)</span>`;
+                        } else {
+                            titleEl.innerHTML = `2. Player Leaderboard <span style="color:#aaa; font-size:14px;">(Since ${new Date(startUnixTimestamp * 1000).toLocaleString()})</span>`;
+                        }
+                    } else {
+                        titleEl.innerHTML = `2. Player Leaderboard <span style="color:#aaa; font-size:14px;">(All available history)</span>`;
+                    }
+
+                    if (leaderboard.length === 0) {
+                        leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#888;">No bags filled during this timeframe.</td></tr>`;
+                    } else {
+                        leaderboard.forEach((player, index) => {
+                            leaderboardBody.innerHTML += `
+                                <tr>
+                                    <td class="rank">${index + 1}</td>
+                                    <td style="color: #fff; font-weight: bold;">${player.name}</td>
+                                    <td style="color: #e53935; font-weight: bold;">${player.total.toLocaleString()}</td>
+                                </tr>`;
+                        });
+                    }
+                    
                     document.getElementById('leaderboardSection').style.display = "block";
                 }
 
