@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Armory Snapshot: Blood Bags</title>
+    <title>Blood Drive Master Dashboard</title>
     <style>
         body { 
             font-family: sans-serif; 
@@ -27,31 +27,25 @@
         }
         input { background: #111; color: #fff; }
         .primary-btn { 
-            background: #4CAF50; 
+            background: #e53935; 
             color: white; 
             font-weight: bold; 
             cursor: pointer; 
             border: none;
         }
-        .primary-btn:hover { background: #45a049; }
+        .primary-btn:hover { background: #c62828; }
         
-        .csv-btn {
-            background: #2196F3;
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-            border: none;
-            display: none;
-            margin-top: 0;
+        .dashboard-section {
+            margin-top: 30px;
+            background: #111;
+            padding: 15px;
+            border-radius: 5px;
         }
-        .csv-btn:hover { background: #1976D2; }
-
+        
         .table-container { 
-            margin-top: 20px; 
-            background: #111; 
-            border-radius: 5px; 
-            max-height: 500px; 
+            max-height: 400px; 
             overflow-y: auto; 
+            margin-top: 10px;
         }
         
         table {
@@ -67,137 +61,148 @@
             background-color: #222;
             position: sticky;
             top: 0;
-            color: #4CAF50;
+            color: #e53935;
         }
         tr:nth-child(even) { background-color: #1a1a1a; }
         tr:hover { background-color: #2a2a2a; }
         
-        .controls {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            justify-content: space-between;
-            margin-top: 15px;
-        }
+        .rank { font-weight: bold; color: #888; width: 40px; }
+        h3 { margin-top: 0; color: #4CAF50; border-bottom: 1px solid #333; padding-bottom: 10px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>Faction Armory Snapshot: Blood Bags</h2>
+        <h2>Blood Drive Master Dashboard</h2>
         
         <div id="loginScreen">
             <label>Enter your Torn API Key (Limited Access):</label>
             <input type="password" id="apiKeyInput" placeholder="Paste your API key here..." />
-            <button class="primary-btn" onclick="fetchSnapshot()">Take Armory Snapshot</button>
+            <button class="primary-btn" onclick="runDashboard()">Load Dashboard</button>
+        </div>
+        
+        <div id="statusMessage" style="margin-top: 15px;"></div>
+
+        <!-- Section 1: The Snapshot -->
+        <div class="dashboard-section" id="snapshotSection" style="display: none;">
+            <h3>1. Current Armory Snapshot</h3>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Item Name</th>
+                            <th>Quantity in Armory</th>
+                        </tr>
+                    </thead>
+                    <tbody id="snapshotBody"></tbody>
+                </table>
+            </div>
         </div>
 
-        <div class="controls">
-            <div id="statusMessage"></div>
-            <button id="csvButton" class="csv-btn" onclick="downloadCSV()">Download as CSV</button>
-        </div>
-
-        <div class="table-container">
-            <table id="resultsTable">
-                <thead>
-                    <tr>
-                        <th>Item Name</th>
-                        <th>Quantity in Armory</th>
-                    </tr>
-                </thead>
-                <tbody id="resultsBody">
-                    <!-- Data populates here -->
-                </tbody>
-            </table>
+        <!-- Section 2: The Leaderboard -->
+        <div class="dashboard-section" id="leaderboardSection" style="display: none;">
+            <h3>2. Player Leaderboard (Bags Filled)</h3>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="rank">#</th>
+                            <th>Player Name</th>
+                            <th>Filled Bags</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardBody"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 
     <script>
-        let globalSnapshotData = [];
-
-        async function fetchSnapshot() {
+        async function runDashboard() {
             const apiKey = document.getElementById('apiKeyInput').value.trim();
             const statusDiv = document.getElementById('statusMessage');
-            const resultsBody = document.getElementById('resultsBody');
-            const csvBtn = document.getElementById('csvButton');
             
             if (!apiKey) {
                 statusDiv.innerHTML = "<span style='color: #ff5555;'>Please enter an API key.</span>";
                 return;
             }
 
-            statusDiv.innerHTML = "Taking snapshot of medical armory...";
-            csvBtn.style.display = "none";
-            resultsBody.innerHTML = "";
-            globalSnapshotData = [];
+            statusDiv.innerHTML = "Fetching snapshot and logs from Torn...";
+            
+            // Hide sections while loading
+            document.getElementById('snapshotSection').style.display = "none";
+            document.getElementById('leaderboardSection').style.display = "none";
 
-            // API v1: Hitting the medical selections of the faction armory
-            const url = `https://api.torn.com/faction/?selections=medical&key=${apiKey}`;
+            // Fetch both endpoints at the same time
+            const medicalUrl = `https://api.torn.com/faction/?selections=medical&key=${apiKey}`;
+            const newsUrl = `https://api.torn.com/faction/?selections=armorynews&key=${apiKey}`;
             
             try {
-                const response = await fetch(url);
-                const data = await response.json();
+                const [medicalRes, newsRes] = await Promise.all([fetch(medicalUrl), fetch(newsUrl)]);
+                const medicalData = await medicalRes.json();
+                const newsData = await newsRes.json();
                 
-                if (data.error) {
-                    statusDiv.innerHTML = `<span style='color: #ff5555;'>API Error: ${data.error.error}</span>`;
+                if (medicalData.error || newsData.error) {
+                    const errMsg = medicalData.error ? medicalData.error.error : newsData.error.error;
+                    statusDiv.innerHTML = `<span style='color: #ff5555;'>API Error: ${errMsg}</span>`;
                     return;
                 }
 
-                if (!data.medical) {
-                    statusDiv.innerHTML = "<span style='color: #ff5555;'>No medical items found in armory.</span>";
-                    return;
+                statusDiv.innerHTML = "<span style='color: #4CAF50;'>Dashboard loaded successfully!</span>";
+
+                // --- BUILD SNAPSHOT ---
+                const snapshotBody = document.getElementById('snapshotBody');
+                snapshotBody.innerHTML = "";
+                if (medicalData.medical) {
+                    const bloodBags = Object.values(medicalData.medical).filter(item => item.name.includes("Blood Bag"));
+                    bloodBags.sort((a, b) => a.name.localeCompare(b.name));
+                    
+                    bloodBags.forEach(item => {
+                        snapshotBody.innerHTML += `
+                            <tr>
+                                <td style="color: #fff;">${item.name}</td>
+                                <td style="color: #4CAF50; font-weight: bold;">${item.quantity.toLocaleString()}</td>
+                            </tr>`;
+                    });
+                    document.getElementById('snapshotSection').style.display = "block";
                 }
 
-                // Convert the medical object into an array and filter for Blood Bags
-                const medicalArray = Object.values(data.medical);
-                const bloodBags = medicalArray.filter(item => item.name.includes("Blood Bag"));
+                // --- BUILD LEADERBOARD ---
+                const leaderboardBody = document.getElementById('leaderboardBody');
+                leaderboardBody.innerHTML = "";
+                if (newsData.armorynews) {
+                    const playerTotals = {};
+                    Object.values(newsData.armorynews).forEach(log => {
+                        if (log.news.includes("filled") && log.news.includes("faction's Empty Blood Bag")) {
+                            const nameMatch = log.news.match(/>([^<]+)<\/a>/);
+                            const playerName = nameMatch ? nameMatch[1] : "Unknown Player";
 
-                if (bloodBags.length === 0) {
-                    statusDiv.innerHTML = "No blood bags currently sitting in the armory.";
-                    return;
+                            let quantity = 1;
+                            const qtyMatch = log.news.match(/filled (one|\d+[\d,]*) of/i);
+                            if (qtyMatch) {
+                                quantity = qtyMatch[1].toLowerCase() === 'one' ? 1 : parseInt(qtyMatch[1].replace(/,/g, ''));
+                            }
+
+                            playerTotals[playerName] = (playerTotals[playerName] || 0) + quantity;
+                        }
+                    });
+
+                    const leaderboard = Object.keys(playerTotals).map(name => ({ name, total: playerTotals[name] }));
+                    leaderboard.sort((a, b) => b.total - a.total);
+
+                    leaderboard.forEach((player, index) => {
+                        leaderboardBody.innerHTML += `
+                            <tr>
+                                <td class="rank">${index + 1}</td>
+                                <td style="color: #fff; font-weight: bold;">${player.name}</td>
+                                <td style="color: #e53935; font-weight: bold;">${player.total.toLocaleString()}</td>
+                            </tr>`;
+                    });
+                    document.getElementById('leaderboardSection').style.display = "block";
                 }
-
-                statusDiv.innerHTML = `<span style='color: #4CAF50;'>Snapshot successful. Found ${bloodBags.length} unique blood bag types.</span>`;
-                
-                // Sort them so Empty Blood Bags appear at the top, followed by filled ones
-                bloodBags.sort((a, b) => a.name.localeCompare(b.name));
-
-                bloodBags.forEach(item => {
-                    globalSnapshotData.push({ name: item.name, quantity: item.quantity });
-
-                    resultsBody.innerHTML += `
-                        <tr>
-                            <td style="color: #fff;">${item.name}</td>
-                            <td style="color: #4CAF50; font-weight: bold;">${item.quantity.toLocaleString()}</td>
-                        </tr>`;
-                });
-
-                csvBtn.style.display = "block";
 
             } catch (error) {
                 statusDiv.innerHTML = `<span style='color: #ff5555;'>Connection error: ${error.message}</span>`;
             }
-        }
-
-        function downloadCSV() {
-            if (globalSnapshotData.length === 0) return;
-
-            // Generate a timestamp for the filename so you know when the snapshot was taken
-            const dateObj = new Date();
-            const timestamp = dateObj.toISOString().split('T')[0] + "_" + dateObj.getHours() + dateObj.getMinutes();
-            
-            let csvContent = "data:text/csv;charset=utf-8,Item Name,Quantity\n";
-            
-            globalSnapshotData.forEach(row => {
-                csvContent += `"${row.name}","${row.quantity}"\n`;
-            });
-
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `Armory_Snapshot_${timestamp}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
         }
     </script>
 </body>
