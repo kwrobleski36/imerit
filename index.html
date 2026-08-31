@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Blood Bag Tracker</title>
+    <title>Armory Snapshot: Blood Bags</title>
     <style>
         body { 
             font-family: sans-serif; 
@@ -41,7 +41,7 @@
             font-weight: bold;
             cursor: pointer;
             border: none;
-            display: none; /* Hidden until data loads */
+            display: none;
             margin-top: 0;
         }
         .csv-btn:hover { background: #1976D2; }
@@ -50,7 +50,7 @@
             margin-top: 20px; 
             background: #111; 
             border-radius: 5px; 
-            max-height: 500px; /* Prevents screen flooding */
+            max-height: 500px; 
             overflow-y: auto; 
         }
         
@@ -83,12 +83,12 @@
 </head>
 <body>
     <div class="container">
-        <h2>Faction Blood Bag Tracker</h2>
+        <h2>Faction Armory Snapshot: Blood Bags</h2>
         
         <div id="loginScreen">
             <label>Enter your Torn API Key (Limited Access):</label>
             <input type="password" id="apiKeyInput" placeholder="Paste your API key here..." />
-            <button class="primary-btn" onclick="fetchLogs()">Fetch Armory Logs</button>
+            <button class="primary-btn" onclick="fetchSnapshot()">Take Armory Snapshot</button>
         </div>
 
         <div class="controls">
@@ -100,8 +100,8 @@
             <table id="resultsTable">
                 <thead>
                     <tr>
-                        <th>Date & Time</th>
-                        <th>Activity Log</th>
+                        <th>Item Name</th>
+                        <th>Quantity in Armory</th>
                     </tr>
                 </thead>
                 <tbody id="resultsBody">
@@ -112,10 +112,9 @@
     </div>
 
     <script>
-        // Store data globally so the CSV button can access it
-        let globalBloodBagData = [];
+        let globalSnapshotData = [];
 
-        async function fetchLogs() {
+        async function fetchSnapshot() {
             const apiKey = document.getElementById('apiKeyInput').value.trim();
             const statusDiv = document.getElementById('statusMessage');
             const resultsBody = document.getElementById('resultsBody');
@@ -126,12 +125,13 @@
                 return;
             }
 
-            statusDiv.innerHTML = "Fetching data from Torn...";
+            statusDiv.innerHTML = "Taking snapshot of medical armory...";
             csvBtn.style.display = "none";
             resultsBody.innerHTML = "";
-            globalBloodBagData = [];
+            globalSnapshotData = [];
 
-            const url = `https://api.torn.com/v2/faction/news?cat=armorynews&key=${apiKey}`;
+            // API v1: Hitting the medical selections of the faction armory
+            const url = `https://api.torn.com/faction/?selections=medical&key=${apiKey}`;
             
             try {
                 const response = await fetch(url);
@@ -142,38 +142,35 @@
                     return;
                 }
 
-                if (!data.news) {
-                    statusDiv.innerHTML = "<span style='color: #ff5555;'>No news data found.</span>";
+                if (!data.medical) {
+                    statusDiv.innerHTML = "<span style='color: #ff5555;'>No medical items found in armory.</span>";
                     return;
                 }
 
-                const bloodBagLogs = data.news.filter(log => log.news.includes("Blood Bag"));
+                // Convert the medical object into an array and filter for Blood Bags
+                const medicalArray = Object.values(data.medical);
+                const bloodBags = medicalArray.filter(item => item.name.includes("Blood Bag"));
 
-                if (bloodBagLogs.length === 0) {
-                    statusDiv.innerHTML = "No blood bag activity found in recent logs.";
+                if (bloodBags.length === 0) {
+                    statusDiv.innerHTML = "No blood bags currently sitting in the armory.";
                     return;
                 }
 
-                statusDiv.innerHTML = `<span style='color: #4CAF50;'>Found ${bloodBagLogs.length} blood bag records.</span>`;
+                statusDiv.innerHTML = `<span style='color: #4CAF50;'>Snapshot successful. Found ${bloodBags.length} unique blood bag types.</span>`;
                 
-                bloodBagLogs.forEach(log => {
-                    const date = new Date(log.timestamp * 1000).toLocaleString();
-                    
-                    // Strip HTML tags (like profile links) from the news string for a cleaner spreadsheet
-                    const cleanText = log.news.replace(/<[^>]*>?/gm, '');
-                    
-                    // Save for CSV
-                    globalBloodBagData.push({ date: date, text: cleanText });
+                // Sort them so Empty Blood Bags appear at the top, followed by filled ones
+                bloodBags.sort((a, b) => a.name.localeCompare(b.name));
 
-                    // Add to HTML table
+                bloodBags.forEach(item => {
+                    globalSnapshotData.push({ name: item.name, quantity: item.quantity });
+
                     resultsBody.innerHTML += `
                         <tr>
-                            <td style="white-space: nowrap; color: #aaa;">${date}</td>
-                            <td>${log.news}</td>
+                            <td style="color: #fff;">${item.name}</td>
+                            <td style="color: #4CAF50; font-weight: bold;">${item.quantity.toLocaleString()}</td>
                         </tr>`;
                 });
 
-                // Show the CSV download button now that we have data
                 csvBtn.style.display = "block";
 
             } catch (error) {
@@ -182,22 +179,22 @@
         }
 
         function downloadCSV() {
-            if (globalBloodBagData.length === 0) return;
+            if (globalSnapshotData.length === 0) return;
 
-            // Create CSV headers
-            let csvContent = "data:text/csv;charset=utf-8,Date,Activity\n";
+            // Generate a timestamp for the filename so you know when the snapshot was taken
+            const dateObj = new Date();
+            const timestamp = dateObj.toISOString().split('T')[0] + "_" + dateObj.getHours() + dateObj.getMinutes();
             
-            // Loop through data and format as CSV rows
-            globalBloodBagData.forEach(row => {
-                // Wrap text in quotes so commas in the text don't break the columns
-                csvContent += `"${row.date}","${row.text}"\n`;
+            let csvContent = "data:text/csv;charset=utf-8,Item Name,Quantity\n";
+            
+            globalSnapshotData.forEach(row => {
+                csvContent += `"${row.name}","${row.quantity}"\n`;
             });
 
-            // Trigger the download
             const encodedUri = encodeURI(csvContent);
             const link = document.createElement("a");
             link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "BloodBag_Logs.csv");
+            link.setAttribute("download", `Armory_Snapshot_${timestamp}.csv`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
