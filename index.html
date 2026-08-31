@@ -78,8 +78,8 @@
 
             resultsDiv.innerHTML = "Connecting to Torn API v2...";
 
-            // API v2 Faction News Endpoint targeting the Armory
-            const url = `https://api.torn.com/v2/faction/news?cat=armory&key=${apiKey}`;
+            // CORRECTED: 'cat' is now 'armorynews' instead of 'armory'
+            const url = `https://api.torn.com/v2/faction/news?cat=armorynews&key=${apiKey}`;
             
             try {
                 const response = await fetch(url);
@@ -106,7 +106,6 @@
                 // Print the filtered results to the screen
                 resultsDiv.innerHTML = ""; 
                 bloodBagLogs.forEach(log => {
-                    // Convert Torn's UNIX timestamp to your local time
                     const date = new Date(log.timestamp * 1000).toLocaleString();
                     resultsDiv.innerHTML += `
                         <div class="log-entry">
