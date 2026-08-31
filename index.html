@@ -108,7 +108,6 @@
         
         <div id="statusMessage" style="margin-top: 15px;"></div>
 
-        <!-- Section 1: Blood Bag Snapshot -->
         <div class="dashboard-section" id="snapshotSection" style="display: none;">
             <div class="section-header">
                 <h3>1. Blood Bag Inventory Snapshot</h3>
@@ -127,10 +126,9 @@
             </div>
         </div>
 
-        <!-- Section 2: Raw Armory Logs -->
         <div class="dashboard-section" id="logsSection" style="display: none;">
             <div class="section-header">
-                <h3>2. Faction Armory Logs (300 Recent)</h3>
+                <h3>2. Faction Armory Logs (Up to 2,000 Recent)</h3>
                 <button class="csv-btn" onclick="downloadLogsCSV()">Download Filtered CSV</button>
             </div>
             <input type="text" id="searchInput" class="search-box" placeholder="Search logs (e.g., 'Blood Bag', 'PlayerName', 'Xanax')..." onkeyup="filterTable()">
@@ -161,7 +159,7 @@
                 return;
             }
 
-            statusDiv.innerHTML = "Fetching snapshot and paging through history for 300 logs...";
+            statusDiv.innerHTML = "Fetching snapshot and paging through history for up to 2,000 logs...";
             document.getElementById('snapshotSection').style.display = "none";
             document.getElementById('logsSection').style.display = "none";
             
@@ -169,7 +167,6 @@
             snapshotData = [];
 
             try {
-                // --- 1. BUILD SNAPSHOT (Medical items) ---
                 const medicalUrl = `https://api.torn.com/faction/?selections=medical&key=${apiKey}`;
                 const medicalRes = await fetch(medicalUrl);
                 const medicalData = await medicalRes.json();
@@ -201,29 +198,33 @@
                     document.getElementById('snapshotSection').style.display = "block";
                 }
 
-                // --- 2. FETCH ARMORY LOGS (3 Pages of 100 = 300 logs) ---
                 let accumulatedLogs = [];
                 let currentToTimestamp = Math.floor(Date.now() / 1000);
                 
-                // Loop 3 times to get 300 logs total
-                for (let i = 0; i < 3; i++) {
+                for (let i = 0; i < 20; i++) {
                     const newsUrl = `https://api.torn.com/faction/?selections=armorynews&limit=100&to=${currentToTimestamp}&key=${apiKey}`;
                     const newsRes = await fetch(newsUrl);
                     const newsData = await newsRes.json();
                     
                     if (newsData.error) {
-                        break; // Stop fetching if we hit an error midway
+                        break; 
                     }
                     
                     if (newsData.armorynews) {
                         const logsArray = Object.values(newsData.armorynews);
-                        if (logsArray.length === 0) break; // End of history reached
+                        
+                        if (logsArray.length === 0) {
+                            break; 
+                        }
                         
                         accumulatedLogs.push(...logsArray);
                         
-                        // Find the oldest log in this batch and set it as the starting point for the next loop
                         const oldestLog = logsArray.reduce((prev, curr) => (curr.timestamp < prev.timestamp ? curr : prev));
                         currentToTimestamp = oldestLog.timestamp - 1; 
+                        
+                        if (logsArray.length < 100) {
+                            break;
+                        }
                     } else {
                         break;
                     }
@@ -231,20 +232,18 @@
 
                 const logsBody = document.getElementById('logsBody');
                 logsBody.innerHTML = "";
-                document.getElementById('searchInput').value = ""; // Clear search bar
+                document.getElementById('searchInput').value = ""; 
 
                 if (accumulatedLogs.length > 0) {
-                    // Sort them chronologically descending (newest at the top) just to be safe
                     accumulatedLogs.sort((a, b) => b.timestamp - a.timestamp);
 
-                    // Options to force the timestamp into UTC (Torn City Time)
                     const tctOptions = { timeZone: 'UTC', year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
 
                     accumulatedLogs.forEach(log => {
                         const dateObj = new Date(log.timestamp * 1000);
                         const tctDateStr = dateObj.toLocaleString('en-US', tctOptions) + ' TCT';
                         
-                        const cleanText = log.news.replace(/<[^>]*>?/gm, ''); // Strip HTML for CSV
+                        const cleanText = log.news.replace(/<[^>]*>?/gm, ''); 
                         
                         allLogs.push({ date: tctDateStr, htmlText: log.news, cleanText: cleanText });
 
