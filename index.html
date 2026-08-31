@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Blood Drive Master Dashboard</title>
+    <title>Faction Armory Dashboard</title>
     <style>
         body { 
             font-family: sans-serif; 
@@ -10,7 +10,7 @@
             color: #ffffff; 
         }
         .container { 
-            max-width: 800px; 
+            max-width: 900px; 
             margin: auto; 
             background: #2d2d2d; 
             padding: 20px; 
@@ -26,41 +26,54 @@
             border: 1px solid #555;
         }
         input { background: #111; color: #fff; }
-        
-        .date-time-row {
-            display: flex;
-            gap: 15px;
-            margin: 10px 0;
-        }
-        .date-time-row div {
-            flex: 1;
-        }
-        label {
-            font-size: 14px;
-            color: #aaa;
-        }
-
         .primary-btn { 
             background: #e53935; 
             color: white; 
             font-weight: bold; 
             cursor: pointer; 
             border: none;
-            margin-top: 20px;
         }
         .primary-btn:hover { background: #c62828; }
         
+        .csv-btn {
+            background: #2196F3;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            width: auto;
+            padding: 8px 15px;
+            margin: 0;
+        }
+        .csv-btn:hover { background: #1976D2; }
+
         .dashboard-section {
             margin-top: 30px;
             background: #111;
             padding: 15px;
             border-radius: 5px;
+            border-left: 4px solid #e53935;
         }
         
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        
+        h3 { margin: 0; color: #4CAF50; }
+
+        .search-box {
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
         .table-container { 
             max-height: 400px; 
             overflow-y: auto; 
-            margin-top: 10px;
         }
         
         table {
@@ -77,41 +90,30 @@
             position: sticky;
             top: 0;
             color: #e53935;
+            z-index: 10;
         }
         tr:nth-child(even) { background-color: #1a1a1a; }
         tr:hover { background-color: #2a2a2a; }
-        
-        .rank { font-weight: bold; color: #888; width: 40px; }
-        h3 { margin-top: 0; color: #4CAF50; border-bottom: 1px solid #333; padding-bottom: 10px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>Blood Drive Master Dashboard</h2>
+        <h2>Faction Armory Dashboard</h2>
         
         <div id="loginScreen">
             <label>Enter your Torn API Key (Limited Access):</label>
             <input type="password" id="apiKeyInput" placeholder="Paste your API key here..." />
-            
-            <div class="date-time-row">
-                <div>
-                    <label>Competition Start Date:</label>
-                    <input type="date" id="startDate" />
-                </div>
-                <div>
-                    <label>Start Time (Your Local Time):</label>
-                    <input type="time" id="startTime" />
-                </div>
-            </div>
-
-            <button class="primary-btn" onclick="runDashboard()">Load Dashboard</button>
+            <button class="primary-btn" onclick="fetchDashboardData()">Load Dashboard</button>
         </div>
         
         <div id="statusMessage" style="margin-top: 15px;"></div>
 
-        <!-- Section 1: The Snapshot -->
+        <!-- Section 1: Blood Bag Snapshot -->
         <div class="dashboard-section" id="snapshotSection" style="display: none;">
-            <h3>1. Current Armory Snapshot</h3>
+            <div class="section-header">
+                <h3>1. Blood Bag Inventory Snapshot</h3>
+                <button class="csv-btn" onclick="downloadSnapshotCSV()">Download Snapshot CSV</button>
+            </div>
             <div class="table-container">
                 <table>
                     <thead>
@@ -125,55 +127,52 @@
             </div>
         </div>
 
-        <!-- Section 2: The Leaderboard -->
-        <div class="dashboard-section" id="leaderboardSection" style="display: none;">
-            <h3 id="leaderboardTitle">2. Player Leaderboard (Bags Filled)</h3>
+        <!-- Section 2: Raw Armory Logs -->
+        <div class="dashboard-section" id="logsSection" style="display: none;">
+            <div class="section-header">
+                <h3>2. Faction Armory Logs</h3>
+                <button class="csv-btn" onclick="downloadLogsCSV()">Download Filtered CSV</button>
+            </div>
+            <input type="text" id="searchInput" class="search-box" placeholder="Search logs (e.g., 'Blood Bag', 'PlayerName', 'Xanax')..." onkeyup="filterTable()">
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
-                            <th class="rank">#</th>
-                            <th>Player Name</th>
-                            <th>Filled Bags</th>
+                            <th style="width: 200px;">Date & Time</th>
+                            <th>Log Entry</th>
                         </tr>
                     </thead>
-                    <tbody id="leaderboardBody"></tbody>
+                    <tbody id="logsBody"></tbody>
                 </table>
             </div>
         </div>
     </div>
 
     <script>
-        async function runDashboard() {
+        let allLogs = [];
+        let snapshotData = [];
+
+        async function fetchDashboardData() {
             const apiKey = document.getElementById('apiKeyInput').value.trim();
             const statusDiv = document.getElementById('statusMessage');
-            
-            const startDateVal = document.getElementById('startDate').value;
-            const startTimeVal = document.getElementById('startTime').value;
             
             if (!apiKey) {
                 statusDiv.innerHTML = "<span style='color: #ff5555;'>Please enter an API key.</span>";
                 return;
             }
 
-            // Convert the user's selected date/time into a UNIX timestamp
-            let startUnixTimestamp = 0;
-            if (startDateVal) {
-                // Default to midnight if they pick a date but no time
-                const timeString = startTimeVal ? startTimeVal : '00:00'; 
-                const dateObj = new Date(`${startDateVal}T${timeString}`);
-                startUnixTimestamp = Math.floor(dateObj.getTime() / 1000);
-            }
-
             statusDiv.innerHTML = "Fetching snapshot and logs from Torn...";
-            
             document.getElementById('snapshotSection').style.display = "none";
-            document.getElementById('leaderboardSection').style.display = "none";
+            document.getElementById('logsSection').style.display = "none";
+            
+            allLogs = [];
+            snapshotData = [];
 
             const medicalUrl = `https://api.torn.com/faction/?selections=medical&key=${apiKey}`;
             const newsUrl = `https://api.torn.com/faction/?selections=armorynews&key=${apiKey}`;
             
             try {
+                // Fetch both endpoints at once
                 const [medicalRes, newsRes] = await Promise.all([fetch(medicalUrl), fetch(newsUrl)]);
                 const medicalData = await medicalRes.json();
                 const newsData = await newsRes.json();
@@ -186,87 +185,117 @@
 
                 statusDiv.innerHTML = "<span style='color: #4CAF50;'>Dashboard loaded successfully!</span>";
 
-                // --- BUILD SNAPSHOT (Real-time, ignores date filter) ---
+                // --- BUILD SNAPSHOT ---
                 const snapshotBody = document.getElementById('snapshotBody');
                 snapshotBody.innerHTML = "";
+                
                 if (medicalData.medical) {
                     const bloodBags = Object.values(medicalData.medical).filter(item => item.name.includes("Blood Bag"));
                     bloodBags.sort((a, b) => a.name.localeCompare(b.name));
                     
-                    bloodBags.forEach(item => {
-                        snapshotBody.innerHTML += `
-                            <tr>
-                                <td style="color: #fff;">${item.name}</td>
-                                <td style="color: #4CAF50; font-weight: bold;">${item.quantity.toLocaleString()}</td>
-                            </tr>`;
-                    });
+                    if (bloodBags.length > 0) {
+                        bloodBags.forEach(item => {
+                            snapshotData.push({ name: item.name, quantity: item.quantity });
+                            snapshotBody.innerHTML += `
+                                <tr>
+                                    <td style="color: #fff;">${item.name}</td>
+                                    <td style="color: #4CAF50; font-weight: bold;">${item.quantity.toLocaleString()}</td>
+                                </tr>`;
+                        });
+                    } else {
+                        snapshotBody.innerHTML = `<tr><td colspan="2" style="text-align:center; color:#888;">No blood bags found in armory.</td></tr>`;
+                    }
                     document.getElementById('snapshotSection').style.display = "block";
                 }
 
-                // --- BUILD LEADERBOARD (Filtered by Date/Time) ---
-                const leaderboardBody = document.getElementById('leaderboardBody');
-                leaderboardBody.innerHTML = "";
+                // --- BUILD RAW LOGS ---
+                const logsBody = document.getElementById('logsBody');
+                logsBody.innerHTML = "";
+                document.getElementById('searchInput').value = ""; // Clear search bar
+
                 if (newsData.armorynews) {
-                    const playerTotals = {};
-                    let oldestLogTimestamp = Date.now() / 1000;
+                    const logsArray = Object.values(newsData.armorynews);
                     
-                    Object.values(newsData.armorynews).forEach(log => {
-                        // Track the oldest log we can see to warn the user
-                        if (log.timestamp < oldestLogTimestamp) {
-                            oldestLogTimestamp = log.timestamp;
-                        }
+                    if (logsArray.length > 0) {
+                        logsArray.forEach(log => {
+                            const date = new Date(log.timestamp * 1000).toLocaleString();
+                            const cleanText = log.news.replace(/<[^>]*>?/gm, ''); // Strip HTML for CSV
+                            
+                            allLogs.push({ date: date, htmlText: log.news, cleanText: cleanText });
 
-                        // Apply the Date/Time filter
-                        if (log.timestamp >= startUnixTimestamp) {
-                            if (log.news.includes("filled") && log.news.includes("faction's Empty Blood Bag")) {
-                                const nameMatch = log.news.match(/>([^<]+)<\/a>/);
-                                const playerName = nameMatch ? nameMatch[1] : "Unknown Player";
-
-                                let quantity = 1;
-                                const qtyMatch = log.news.match(/filled (one|\d+[\d,]*) of/i);
-                                if (qtyMatch) {
-                                    quantity = qtyMatch[1].toLowerCase() === 'one' ? 1 : parseInt(qtyMatch[1].replace(/,/g, ''));
-                                }
-
-                                playerTotals[playerName] = (playerTotals[playerName] || 0) + quantity;
-                            }
-                        }
-                    });
-
-                    const leaderboard = Object.keys(playerTotals).map(name => ({ name, total: playerTotals[name] }));
-                    leaderboard.sort((a, b) => b.total - a.total);
-
-                    // Update Title to reflect the filter status
-                    const titleEl = document.getElementById('leaderboardTitle');
-                    if (startUnixTimestamp > 0) {
-                        if (startUnixTimestamp < oldestLogTimestamp) {
-                            titleEl.innerHTML = `2. Player Leaderboard <span style="color:#ff9800; font-size:14px;">(Warning: Torn logs only go back to ${new Date(oldestLogTimestamp * 1000).toLocaleDateString()}, some early data may be missing)</span>`;
-                        } else {
-                            titleEl.innerHTML = `2. Player Leaderboard <span style="color:#aaa; font-size:14px;">(Since ${new Date(startUnixTimestamp * 1000).toLocaleString()})</span>`;
-                        }
-                    } else {
-                        titleEl.innerHTML = `2. Player Leaderboard <span style="color:#aaa; font-size:14px;">(All available history)</span>`;
-                    }
-
-                    if (leaderboard.length === 0) {
-                        leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#888;">No bags filled during this timeframe.</td></tr>`;
-                    } else {
-                        leaderboard.forEach((player, index) => {
-                            leaderboardBody.innerHTML += `
-                                <tr>
-                                    <td class="rank">${index + 1}</td>
-                                    <td style="color: #fff; font-weight: bold;">${player.name}</td>
-                                    <td style="color: #e53935; font-weight: bold;">${player.total.toLocaleString()}</td>
+                            logsBody.innerHTML += `
+                                <tr class="log-row">
+                                    <td style="color: #aaa;">${date}</td>
+                                    <td>${log.news}</td>
                                 </tr>`;
                         });
+                    } else {
+                        logsBody.innerHTML = `<tr><td colspan="2" style="text-align:center; color:#888;">Armory log is currently empty.</td></tr>`;
                     }
-                    
-                    document.getElementById('leaderboardSection').style.display = "block";
+                    document.getElementById('logsSection').style.display = "block";
                 }
 
             } catch (error) {
                 statusDiv.innerHTML = `<span style='color: #ff5555;'>Connection error: ${error.message}</span>`;
             }
+        }
+
+        function filterTable() {
+            const input = document.getElementById("searchInput").value.toLowerCase();
+            const rows = document.querySelectorAll(".log-row");
+
+            rows.forEach(row => {
+                const logText = row.cells[1].innerText.toLowerCase();
+                if (logText.includes(input)) {
+                    row.style.display = "";
+                } else {
+                    row.style.display = "none";
+                }
+            });
+        }
+
+        function downloadSnapshotCSV() {
+            if (snapshotData.length === 0) {
+                alert("No snapshot data to download.");
+                return;
+            }
+
+            const dateObj = new Date();
+            const timestamp = dateObj.toISOString().split('T')[0] + "_" + dateObj.getHours() + dateObj.getMinutes();
+            
+            let csvContent = "data:text/csv;charset=utf-8,Item Name,Quantity\n";
+            snapshotData.forEach(row => {
+                csvContent += `"${row.name}","${row.quantity}"\n`;
+            });
+
+            triggerDownload(csvContent, `BloodBag_Snapshot_${timestamp}.csv`);
+        }
+
+        function downloadLogsCSV() {
+            const input = document.getElementById("searchInput").value.toLowerCase();
+            const filteredLogs = allLogs.filter(log => log.cleanText.toLowerCase().includes(input));
+            
+            if (filteredLogs.length === 0) {
+                alert("No logs match your current search.");
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,Date,Log Entry\n";
+            filteredLogs.forEach(row => {
+                csvContent += `"${row.date}","${row.cleanText}"\n`;
+            });
+
+            triggerDownload(csvContent, "Filtered_Armory_Logs.csv");
+        }
+
+        function triggerDownload(csvContent, filename) {
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", filename);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
     </script>
 </body>
