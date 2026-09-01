@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Faction Armory Dashboard</title>
+    <title>Blood Drive Dashboard</title>
     <style>
         body { 
             font-family: sans-serif; 
@@ -17,6 +17,22 @@
             border-radius: 8px; 
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
+        
+        .header-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .graphic-box {
+            background: #2b2d31; 
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
+        }
+
         input, button { 
             padding: 10px; 
             margin: 10px 0; 
@@ -25,15 +41,30 @@
             border-radius: 4px;
             border: 1px solid #555;
         }
-        input { background: #111; color: #fff; }
+        input { background: #111; color: #fff; text-align: center; font-weight: bold; }
+        
+        .btn-group {
+            display: flex;
+            gap: 15px;
+        }
+
         .primary-btn { 
-            background: #e53935; 
+            background: #4CAF50; 
             color: white; 
             font-weight: bold; 
             cursor: pointer; 
             border: none;
         }
-        .primary-btn:hover { background: #c62828; }
+        .primary-btn:hover { background: #45a049; }
+
+        .secondary-btn {
+            background: #e53935;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+        }
+        .secondary-btn:hover { background: #c62828; }
         
         .csv-btn {
             background: #2196F3;
@@ -48,13 +79,17 @@
         .csv-btn:hover { background: #1976D2; }
 
         .dashboard-section {
-            margin-top: 30px;
+            margin-top: 20px;
             background: #111;
             padding: 15px;
             border-radius: 5px;
-            border-left: 4px solid #e53935;
+            border-left: 4px solid #4CAF50;
         }
         
+        #logsSection {
+            border-left: 4px solid #e53935;
+        }
+
         .section-header {
             display: flex;
             justify-content: space-between;
@@ -64,7 +99,7 @@
             margin-bottom: 15px;
         }
         
-        h3 { margin: 0; color: #4CAF50; }
+        h3 { margin: 0; color: #fff; }
 
         .search-box {
             width: 100%;
@@ -72,7 +107,7 @@
         }
 
         .table-container { 
-            max-height: 500px; 
+            max-height: 400px; 
             overflow-y: auto; 
         }
         
@@ -89,7 +124,7 @@
             background-color: #222;
             position: sticky;
             top: 0;
-            color: #e53935;
+            color: #aaa;
             z-index: 10;
         }
         tr:nth-child(even) { background-color: #1a1a1a; }
@@ -98,27 +133,51 @@
 </head>
 <body>
     <div class="container">
-        <h2>Faction Armory Dashboard</h2>
         
+        <div class="header-area">
+            <div class="graphic-box" id="captureArea">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 400" width="200" height="266">
+                    <rect x="40" y="40" width="220" height="340" rx="30" fill="#eceff1" stroke="#cfd8dc" stroke-width="4"/>
+                    <circle cx="150" cy="70" r="8" fill="#2b2d31" />
+                    <path d="M 42 190 L 258 190 L 258 350 C 258 366.5 244.5 380 228 380 L 72 380 C 55.5 380 42 366.5 42 350 Z" fill="#e53935"/>
+                    <rect x="110" y="380" width="15" height="20" rx="3" fill="#cfd8dc" />
+                    <rect x="175" y="380" width="15" height="20" rx="3" fill="#cfd8dc" />
+                    <rect x="55" y="80" width="15" height="280" rx="7.5" fill="#ffffff" opacity="0.6"/>
+                    <rect x="65" y="100" width="170" height="150" rx="10" fill="#ffffff" stroke="#e0e0e0" stroke-width="2"/>
+                    <text x="150" y="135" font-family="Arial, sans-serif" font-size="22" font-weight="900" fill="#b71c1c" text-anchor="middle">BLOOD DRIVE</text>
+                    
+                    <text x="75" y="180" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#7f8c8d">DATE:</text>
+                    <text x="115" y="180" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#2c3e50" id="svgDate">--</text>
+                    <line x1="110" y1="185" x2="225" y2="185" stroke="#bdc3c7" stroke-width="1"/>
+
+                    <text x="75" y="225" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#7f8c8d">FILLED:</text>
+                    <text x="135" y="225" font-family="Arial, sans-serif" font-size="22" font-weight="900" fill="#e53935" id="svgAmount">0</text>
+                    <line x1="130" y1="230" x2="225" y2="230" stroke="#bdc3c7" stroke-width="1"/>
+                </svg>
+            </div>
+        </div>
+
         <div id="loginScreen">
-            <label>Enter your Torn API Key (Limited Access):</label>
-            <input type="password" id="apiKeyInput" placeholder="Paste your API key here..." />
-            <button class="primary-btn" onclick="fetchDashboardData()">Load Dashboard</button>
+            <input type="password" id="apiKeyInput" placeholder="Enter Torn API Key..." />
+            <div class="btn-group">
+                <button class="primary-btn" onclick="fetchSnapshot()">Refresh Snapshot</button>
+                <button class="secondary-btn" onclick="fetchLogs()">Load Armory Logs (Heavy)</button>
+            </div>
         </div>
         
-        <div id="statusMessage" style="margin-top: 15px;"></div>
+        <div id="statusMessage" style="margin-top: 15px; text-align: center;"></div>
 
         <div class="dashboard-section" id="snapshotSection" style="display: none;">
             <div class="section-header">
-                <h3>1. Blood Bag Inventory Snapshot</h3>
-                <button class="csv-btn" onclick="downloadSnapshotCSV()">Download Snapshot CSV</button>
+                <h3 style="color: #4CAF50;">1. Blood Bag Inventory Snapshot</h3>
+                <button class="csv-btn" onclick="downloadSnapshotCSV()">Download CSV</button>
             </div>
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
-                            <th>Item Name</th>
-                            <th>Quantity in Armory</th>
+                            <th style="color: #4CAF50;">Item Name</th>
+                            <th style="color: #4CAF50;">Quantity in Armory</th>
                         </tr>
                     </thead>
                     <tbody id="snapshotBody"></tbody>
@@ -128,7 +187,7 @@
 
         <div class="dashboard-section" id="logsSection" style="display: none;">
             <div class="section-header">
-                <h3>2. Faction Armory Logs (Up to 2,000 Recent)</h3>
+                <h3 style="color: #e53935;">2. Faction Armory Logs (Up to 2,000 Recent)</h3>
                 <button class="csv-btn" onclick="downloadLogsCSV()">Download Filtered CSV</button>
             </div>
             <input type="text" id="searchInput" class="search-box" placeholder="Search logs (e.g., 'Blood Bag', 'PlayerName', 'Xanax')..." onkeyup="filterTable()">
@@ -136,8 +195,8 @@
                 <table>
                     <thead>
                         <tr>
-                            <th style="width: 220px;">Date & Time (TCT)</th>
-                            <th>Log Entry</th>
+                            <th style="width: 220px; color: #e53935;">Date & Time (TCT)</th>
+                            <th style="color: #e53935;">Log Entry</th>
                         </tr>
                     </thead>
                     <tbody id="logsBody"></tbody>
@@ -147,10 +206,19 @@
     </div>
 
     <script>
+        const BASELINE_EMPTY_BAGS = 2368;
         let allLogs = [];
         let snapshotData = [];
 
-        async function fetchDashboardData() {
+        window.onload = function() {
+            const savedKey = localStorage.getItem('tornApiKey');
+            if (savedKey) {
+                document.getElementById('apiKeyInput').value = savedKey;
+                fetchSnapshot();
+            }
+        };
+
+        async function fetchSnapshot() {
             const apiKey = document.getElementById('apiKeyInput').value.trim();
             const statusDiv = document.getElementById('statusMessage');
             
@@ -159,11 +227,8 @@
                 return;
             }
 
-            statusDiv.innerHTML = "Fetching snapshot and paging through history for up to 2,000 logs...";
-            document.getElementById('snapshotSection').style.display = "none";
-            document.getElementById('logsSection').style.display = "none";
-            
-            allLogs = [];
+            localStorage.setItem('tornApiKey', apiKey);
+            statusDiv.innerHTML = "Fetching instant snapshot...";
             snapshotData = [];
 
             try {
@@ -178,6 +243,7 @@
 
                 const snapshotBody = document.getElementById('snapshotBody');
                 snapshotBody.innerHTML = "";
+                let currentEmptyBags = 0;
                 
                 if (medicalData.medical) {
                     const bloodBags = Object.values(medicalData.medical).filter(item => item.name.includes("Blood Bag"));
@@ -185,6 +251,10 @@
                     
                     if (bloodBags.length > 0) {
                         bloodBags.forEach(item => {
+                            if (item.name === "Empty Blood Bag") {
+                                currentEmptyBags = item.quantity;
+                            }
+                            
                             snapshotData.push({ name: item.name, quantity: item.quantity });
                             snapshotBody.innerHTML += `
                                 <tr>
@@ -192,12 +262,38 @@
                                     <td style="color: #4CAF50; font-weight: bold;">${item.quantity.toLocaleString()}</td>
                                 </tr>`;
                         });
+                        
+                        const totalFilled = BASELINE_EMPTY_BAGS - currentEmptyBags;
+                        document.getElementById('svgAmount').textContent = totalFilled.toLocaleString();
+                        
+                        const tctOptions = { timeZone: 'UTC', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false };
+                        document.getElementById('svgDate').textContent = new Date().toLocaleString('en-US', tctOptions) + ' TCT';
+                        
                     } else {
                         snapshotBody.innerHTML = `<tr><td colspan="2" style="text-align:center; color:#888;">No blood bags found in armory.</td></tr>`;
                     }
+                    
                     document.getElementById('snapshotSection').style.display = "block";
+                    statusDiv.innerHTML = "<span style='color: #4CAF50;'>Snapshot updated instantly!</span>";
                 }
+            } catch (error) {
+                statusDiv.innerHTML = `<span style='color: #ff5555;'>Connection error: ${error.message}</span>`;
+            }
+        }
 
+        async function fetchLogs() {
+            const apiKey = document.getElementById('apiKeyInput').value.trim();
+            const statusDiv = document.getElementById('statusMessage');
+            
+            if (!apiKey) {
+                statusDiv.innerHTML = "<span style='color: #ff5555;'>Please enter an API key.</span>";
+                return;
+            }
+
+            statusDiv.innerHTML = "Paging through history for up to 2,000 logs... please wait.";
+            allLogs = [];
+
+            try {
                 let accumulatedLogs = [];
                 let currentToTimestamp = Math.floor(Date.now() / 1000);
                 
@@ -206,25 +302,18 @@
                     const newsRes = await fetch(newsUrl);
                     const newsData = await newsRes.json();
                     
-                    if (newsData.error) {
-                        break; 
-                    }
+                    if (newsData.error) { break; }
                     
                     if (newsData.armorynews) {
                         const logsArray = Object.values(newsData.armorynews);
-                        
-                        if (logsArray.length === 0) {
-                            break; 
-                        }
+                        if (logsArray.length === 0) { break; }
                         
                         accumulatedLogs.push(...logsArray);
                         
                         const oldestLog = logsArray.reduce((prev, curr) => (curr.timestamp < prev.timestamp ? curr : prev));
                         currentToTimestamp = oldestLog.timestamp - 1; 
                         
-                        if (logsArray.length < 100) {
-                            break;
-                        }
+                        if (logsArray.length < 100) { break; }
                     } else {
                         break;
                     }
@@ -236,13 +325,11 @@
 
                 if (accumulatedLogs.length > 0) {
                     accumulatedLogs.sort((a, b) => b.timestamp - a.timestamp);
-
                     const tctOptions = { timeZone: 'UTC', year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
 
                     accumulatedLogs.forEach(log => {
                         const dateObj = new Date(log.timestamp * 1000);
                         const tctDateStr = dateObj.toLocaleString('en-US', tctOptions) + ' TCT';
-                        
                         const cleanText = log.news.replace(/<[^>]*>?/gm, ''); 
                         
                         allLogs.push({ date: tctDateStr, htmlText: log.news, cleanText: cleanText });
@@ -254,10 +341,10 @@
                             </tr>`;
                     });
                     
-                    statusDiv.innerHTML = `<span style='color: #4CAF50;'>Dashboard loaded! Found ${accumulatedLogs.length} recent armory logs.</span>`;
+                    statusDiv.innerHTML = `<span style='color: #e53935;'>Found ${accumulatedLogs.length} recent armory logs.</span>`;
                 } else {
                     logsBody.innerHTML = `<tr><td colspan="2" style="text-align:center; color:#888;">Armory log is currently empty.</td></tr>`;
-                    statusDiv.innerHTML = `<span style='color: #4CAF50;'>Dashboard loaded, but no logs found.</span>`;
+                    statusDiv.innerHTML = `<span style='color: #4CAF50;'>No armory logs found.</span>`;
                 }
                 
                 document.getElementById('logsSection').style.display = "block";
@@ -282,36 +369,25 @@
         }
 
         function downloadSnapshotCSV() {
-            if (snapshotData.length === 0) {
-                alert("No snapshot data to download.");
-                return;
-            }
-
+            if (snapshotData.length === 0) return;
             const dateObj = new Date();
             const timestamp = dateObj.toISOString().split('T')[0] + "_" + dateObj.getHours() + dateObj.getMinutes();
-            
             let csvContent = "data:text/csv;charset=utf-8,Item Name,Quantity\n";
             snapshotData.forEach(row => {
                 csvContent += `"${row.name}","${row.quantity}"\n`;
             });
-
             triggerDownload(csvContent, `BloodBag_Snapshot_${timestamp}.csv`);
         }
 
         function downloadLogsCSV() {
             const input = document.getElementById("searchInput").value.toLowerCase();
             const filteredLogs = allLogs.filter(log => log.cleanText.toLowerCase().includes(input));
+            if (filteredLogs.length === 0) return;
             
-            if (filteredLogs.length === 0) {
-                alert("No logs match your current search.");
-                return;
-            }
-
             let csvContent = "data:text/csv;charset=utf-8,Date (TCT),Log Entry\n";
             filteredLogs.forEach(row => {
                 csvContent += `"${row.date}","${row.cleanText}"\n`;
             });
-
             triggerDownload(csvContent, "Filtered_Armory_Logs.csv");
         }
 
